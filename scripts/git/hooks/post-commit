@@ -1,0 +1,59 @@
+#!/bin/bash
+# Hook post-commit pour CryptoSpreadEdge
+
+echo "🎉 Commit effectué avec succès!"
+
+# Afficher les informations du commit
+commit_hash=$(git rev-parse HEAD)
+commit_message=$(git log -1 --pretty=%B)
+branch=$(git branch --show-current)
+
+echo "📝 Commit: $commit_hash"
+echo "💬 Message: $commit_message"
+echo "🌿 Branche: $branch"
+
+# Vérifier si c'est une branche de fonctionnalité
+if [[ $branch == feature/* ]]; then
+    echo "✨ Branche de fonctionnalité détectée"
+    echo "💡 N'oubliez pas de créer une Pull Request quand la fonctionnalité est prête"
+fi
+
+# Vérifier si c'est une branche de hotfix
+if [[ $branch == hotfix/* ]]; then
+    echo "🚨 Branche de hotfix détectée"
+    echo "💡 N'oubliez pas de fusionner vers master et de créer un tag de version"
+fi
+
+# Vérifier si c'est une branche de release
+if [[ $branch == release/* ]]; then
+    echo "🚀 Branche de release détectée"
+    echo "💡 N'oubliez pas de créer un tag de version et de fusionner vers master"
+fi
+
+# Suggérer des actions selon le type de commit
+if [[ $commit_message == *"feat"* ]] || [[ $commit_message == *"feature"* ]]; then
+    echo "✨ Fonctionnalité ajoutée - Vérifiez que les tests passent"
+fi
+
+if [[ $commit_message == *"fix"* ]] || [[ $commit_message == *"bug"* ]]; then
+    echo "🐛 Correction apportée - Vérifiez que le problème est résolu"
+fi
+
+if [[ $commit_message == *"docs"* ]]; then
+    echo "📚 Documentation mise à jour - Vérifiez la cohérence"
+fi
+
+if [[ $commit_message == *"test"* ]]; then
+    echo "🧪 Tests ajoutés - Vérifiez la couverture de code"
+fi
+
+# Afficher le statut Git
+echo "📊 Statut actuel:"
+git status --short
+
+# Suggérer la prochaine étape
+echo ""
+echo "💡 Prochaines étapes suggérées:"
+echo "  - python start.py test          # Lancer les tests"
+echo "  - python scripts/git/git-manager.py status  # Voir le statut Git"
+echo "  - git push origin $branch       # Pousser vers le remote"

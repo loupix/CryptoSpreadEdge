@@ -18,3 +18,49 @@ Adapte ton langage pour que le style soit plus humain, moins formaté, et ne res
 # Règles terminal
 
 - Interdire l'utilisation des opérateurs de pipe (|) et des chaînages conditionnels (&&) dans les commandes du terminal. Exécuter les commandes séparément.
+
+# Gestion Git automatique
+
+## Branches et tags
+- Utilise toujours le gestionnaire Git intégré : `python scripts/git/git-manager.py`
+- Crée des branches avec des préfixes appropriés :
+  - `feature/` pour les nouvelles fonctionnalités
+  - `hotfix/` pour les corrections urgentes
+  - `release/` pour les versions
+  - `bugfix/` pour les corrections de bugs
+- Suis la convention de nommage des branches : `type/description-courte`
+- Crée des tags de version avec le format `vX.Y.Z` (semver)
+- Utilise des messages de commit conventionnels :
+  - `feat:` pour les nouvelles fonctionnalités
+  - `fix:` pour les corrections
+  - `docs:` pour la documentation
+  - `test:` pour les tests
+  - `refactor:` pour le refactoring
+  - `chore:` pour les tâches de maintenance
+
+## Hooks Git
+- Installe automatiquement les hooks Git : `python scripts/git/install-hooks.ps1` (Windows) ou `bash scripts/git/install-hooks.sh` (Linux/Mac)
+- Les hooks vérifient automatiquement :
+  - La syntaxe Python avant commit
+  - Les imports et dépendances
+  - La qualité du code (Black, isort, mypy)
+  - Les tests avant push
+  - La couverture de code
+
+## Workflow de développement
+1. Créer une branche : `python scripts/git/git-manager.py branch create feature nom-fonctionnalite`
+2. Développer et commiter avec des messages conventionnels
+3. Pousser la branche : `git push origin feature/nom-fonctionnalite`
+4. Créer une Pull Request
+5. Après merge, nettoyer : `python scripts/git/git-manager.py branch cleanup`
+
+## Gestion des versions
+- Créer un tag : `python scripts/git/git-manager.py tag create 1.0.0`
+- Générer un changelog : `python scripts/git/git-manager.py changelog`
+- Les releases sont automatiquement gérées par GitHub Actions
+
+## Commandes utiles
+- `python scripts/git/git-manager.py status` - Voir le statut Git
+- `python scripts/git/git-manager.py branch list` - Lister les branches
+- `python scripts/git/git-manager.py tag list` - Lister les tags
+- `python start.py status` - Voir le statut du projet complet

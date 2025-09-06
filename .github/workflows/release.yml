@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        python-version: 3.11
+        environment-file: environment.yml
+        activate-environment: cryptospreadedge-prod
+    
+    - name: Generate changelog
+      shell: bash -l {0}
+      run: |
+        conda activate cryptospreadedge-prod
+        python scripts/git/git-manager.py changelog --output CHANGELOG.md
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: infrastructure/docker/services/cryptospreadedge/Dockerfile
+        push: true
+        tags: |
+          cryptospreadedge:${{ github.ref_name }}
+          cryptospreadedge:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Update version in files
+      run: |
+        # Mettre à jour la version dans les fichiers de configuration
+        version="${{ github.ref_name }}"
+        echo "Version: $version"
+        
+        # Mettre à jour le fichier __init__.py
+        sed -i "s/__version__ = \".*\"/__version__ = \"$version\"/" src/__init__.py
+        
+        # Créer un commit de version
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add src/__init__.py
+        git commit -m "Bump version to $version" || exit 0
+        git push

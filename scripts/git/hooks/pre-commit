@@ -1,0 +1,67 @@
+#!/bin/bash
+# Hook pre-commit pour CryptoSpreadEdge
+
+echo "🔍 Vérification pre-commit..."
+
+# Vérifier que nous sommes dans un environnement conda
+if [[ -z "$CONDA_DEFAULT_ENV" ]]; then
+    echo "⚠️  Aucun environnement conda activé"
+    echo "💡 Activez l'environnement avec: conda activate cryptospreadedge-dev"
+fi
+
+# Vérifier les imports Python
+echo "🐍 Vérification des imports Python..."
+python -c "
+import sys
+try:
+    import fastapi, ccxt, pandas, numpy
+    print('✅ Imports principaux OK')
+except ImportError as e:
+    print(f'❌ Import manquant: {e}')
+    sys.exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Erreur d'import Python"
+    exit 1
+fi
+
+# Vérifier la syntaxe Python
+echo "🔍 Vérification de la syntaxe Python..."
+python -m py_compile src/main.py
+if [ $? -ne 0 ]; then
+    echo "❌ Erreur de syntaxe Python"
+    exit 1
+fi
+
+# Vérifier les fichiers de configuration
+echo "⚙️  Vérification des fichiers de configuration..."
+if [ ! -f "config/environments/.env" ]; then
+    echo "⚠️  Fichier .env manquant, copie depuis l'exemple..."
+    cp config/environments/env.example config/environments/.env
+fi
+
+# Vérifier les secrets
+echo "🔐 Vérification des secrets..."
+if grep -q "your_.*_key" config/environments/.env; then
+    echo "⚠️  Clés API par défaut détectées dans .env"
+    echo "💡 Configurez vos vraies clés API avant de commiter"
+fi
+
+# Vérifier la taille des fichiers
+echo "📏 Vérification de la taille des fichiers..."
+large_files=$(find . -name "*.py" -size +1M)
+if [ -n "$large_files" ]; then
+    echo "⚠️  Fichiers Python volumineux détectés:"
+    echo "$large_files"
+fi
+
+# Vérifier les fichiers binaires
+echo "📁 Vérification des fichiers binaires..."
+binary_files=$(git diff --cached --name-only | xargs file | grep -E "(binary|executable)")
+if [ -n "$binary_files" ]; then
+    echo "⚠️  Fichiers binaires détectés dans le commit:"
+    echo "$binary_files"
+fi
+
+echo "✅ Vérifications pre-commit terminées"
