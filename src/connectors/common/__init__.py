@@ -1,0 +1,3 @@
+"""
+Connecteurs communs et interfaces
+"""
