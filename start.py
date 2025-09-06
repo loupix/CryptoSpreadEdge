@@ -132,12 +132,37 @@ def show_status():
         else:
             print(f"❌ {file}")
     
+    # Vérifier les plateformes configurées
+    try:
+        from config.platforms_config import get_platform_summary
+        summary = get_platform_summary()
+        print(f"\n🏢 Plateformes configurées: {summary['total']}")
+        print(f"  - Exchanges: {summary['exchanges']}")
+        print(f"  - DEX: {summary['dex']}")
+        print(f"  - Sources de données: {summary['data_sources']}")
+        print(f"  - Agrégateurs: {summary['aggregators']}")
+    except ImportError:
+        print("\n❌ Configuration des plateformes: Non disponible")
+    
+    # Vérifier les clés API
+    try:
+        from config.api_keys_manager import api_keys_manager
+        api_summary = api_keys_manager.get_summary()
+        print(f"\n🔑 Clés API configurées: {api_summary['total_platforms']}")
+        print(f"  - Activées: {api_summary['enabled_platforms']}")
+        print(f"  - Prêtes pour trading: {api_summary['platforms_ready_for_trading']}")
+        print(f"  - Prêtes pour données: {api_summary['platforms_ready_for_data']}")
+    except ImportError:
+        print("\n❌ Gestionnaire de clés API: Non disponible")
+    
     print("\n💡 Commandes utiles:")
-    print("  python start.py setup dev    - Configurer l'environnement de dev")
-    print("  python start.py run dev      - Lancer en mode développement")
-    print("  python start.py run prod     - Lancer en mode production")
-    print("  python start.py test         - Lancer les tests")
-    print("  python start.py status       - Afficher le statut")
+    print("  python start.py setup dev           - Configurer l'environnement de dev")
+    print("  python start.py run dev             - Lancer en mode développement")
+    print("  python start.py run prod            - Lancer en mode production")
+    print("  python start.py test                - Lancer les tests")
+    print("  python start.py status              - Afficher le statut")
+    print("  python scripts/setup/configure_platforms.py - Configurer les plateformes")
+    print("  python scripts/setup/test_all_platforms.py  - Tester toutes les plateformes")
 
 
 def main():
