@@ -1,0 +1,523 @@
+version: '3.8'
+
+services:
+  # Service de données de marché (scalable)
+  market-data-service:
+    image: cryptospreadedge/market-data:latest
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - KAFKA_BROKERS=kafka-cluster:9092
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    volumes:
+      - market-data-cache:/app/cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Service d'indicateurs (haute performance)
+  indicators-service:
+    image: cryptospreadedge/indicators:latest
+    deploy:
+      replicas: 5
+      placement:
+        constraints:
+          - node.role == worker
+          - node.labels.performance == high
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - KAFKA_BROKERS=kafka-cluster:9092
+      - NUM_WORKERS=4
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    volumes:
+      - indicators-cache:/app/cache
+      - models-data:/app/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service de prédiction ML (GPU si disponible)
+  prediction-service:
+    image: cryptospreadedge/prediction:latest
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+          - node.labels.gpu == true
+      resources:
+        limits:
+          cpus: '8.0'
+          memory: 16G
+        reservations:
+          cpus: '4.0'
+          memory: 8G
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - KAFKA_BROKERS=kafka-cluster:9092
+      - CUDA_VISIBLE_DEVICES=0
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    volumes:
+      - models-data:/app/models
+      - prediction-cache:/app/cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s
+
+  # Service de génération de signaux
+  signals-service:
+    image: cryptospreadedge/signals:latest
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - KAFKA_BROKERS=kafka-cluster:9092
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service de gestion des positions
+  positions-service:
+    image: cryptospreadedge/positions:latest
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - POSTGRES_URL=postgresql://postgres:password@postgres-cluster:5432/trading
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    volumes:
+      - positions-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service d'arbitrage (haute fréquence)
+  arbitrage-service:
+    image: cryptospreadedge/arbitrage:latest
+    deploy:
+      replicas: 4
+      placement:
+        constraints:
+          - node.role == worker
+          - node.labels.latency == low
+      resources:
+        limits:
+          cpus: '6.0'
+          memory: 8G
+        reservations:
+          cpus: '3.0'
+          memory: 4G
+      restart_policy:
+        condition: on-failure
+        delay: 2s
+        max_attempts: 5
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - KAFKA_BROKERS=kafka-cluster:9092
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    volumes:
+      - arbitrage-cache:/app/cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # Service de backtesting
+  backtesting-service:
+    image: cryptospreadedge/backtesting:latest
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - POSTGRES_URL=postgresql://postgres:password@postgres-cluster:5432/trading
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    volumes:
+      - backtesting-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+
+  # Service API Gateway (load balancer)
+  api-gateway:
+    image: cryptospreadedge/api-gateway:latest
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+      - public-network
+    ports:
+      - "80:8000"
+      - "443:8443"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service de monitoring
+  monitoring-service:
+    image: cryptospreadedge/monitoring:latest
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - POSTGRES_URL=postgresql://postgres:password@postgres-cluster:5432/trading
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+      - public-network
+    ports:
+      - "3000:3000"
+    volumes:
+      - monitoring-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3000/health')"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+
+  # Redis Cluster (cache distribué)
+  redis-cluster:
+    image: redis:7-alpine
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    networks:
+      - trading-network
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Cluster (base de données)
+  postgres-cluster:
+    image: postgres:15-alpine
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    environment:
+      - POSTGRES_DB=trading
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    networks:
+      - trading-network
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Kafka Cluster (messaging)
+  kafka-cluster:
+    image: confluentinc/cp-kafka:latest
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-cluster:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+    networks:
+      - trading-network
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+
+  # Zookeeper (pour Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - trading-network
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service de configuration
+  config-service:
+    image: cryptospreadedge/config:latest
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - REDIS_URL=redis://redis-cluster:6379
+      - LOG_LEVEL=INFO
+    networks:
+      - trading-network
+    volumes:
+      - config-data:/app/config
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  trading-network:
+    driver: overlay
+    attachable: true
+    ipam:
+      config:
+        - subnet: 10.0.0.0/16
+  public-network:
+    driver: overlay
+    attachable: true
+
+volumes:
+  market-data-cache:
+    driver: local
+  indicators-cache:
+    driver: local
+  prediction-cache:
+    driver: local
+  arbitrage-cache:
+    driver: local
+  backtesting-data:
+    driver: local
+  monitoring-data:
+    driver: local
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+  kafka-data:
+    driver: local
+  zookeeper-data:
+    driver: local
+  config-data:
+    driver: local
+  models-data:
+    driver: local
+  positions-data:
+    driver: local
