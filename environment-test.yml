@@ -1,0 +1,70 @@
+name: cryptospreadedge-test
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Python
+  - python=3.11
+  
+  # Core dependencies (versions de test)
+  - pip
+  - pip:
+    - fastapi==0.104.1
+    - uvicorn[standard]==0.24.0
+    - pydantic==2.5.0
+    - pydantic-settings==2.1.0
+  
+  # Testing framework
+  - pytest=7.4.3
+  - pytest-cov=4.1.0
+  - pip:
+    - pytest-asyncio==0.21.1
+    - pytest-mock==3.12.0
+    - pytest-xdist==3.5.0
+    - pytest-benchmark==4.0.0
+    - coverage==7.3.2
+  
+  # Data science (versions minimales)
+  - pandas=2.1.4
+  - numpy=1.25.2
+  - scikit-learn=1.3.2
+  
+  # Mocking and testing utilities
+  - pip:
+    - responses==0.24.1
+    - freezegun==1.2.2
+    - factory-boy==3.3.0
+    - faker==20.1.0
+  
+  # Trading dependencies (versions de test)
+  - pip:
+    - ccxt==4.1.77
+    - websockets==12.0
+    - aiohttp==3.9.1
+  
+  # Database testing
+  - pip:
+    - sqlalchemy==2.0.23
+    - alembic==1.13.1
+    - asyncpg==0.29.0
+    - sqlite3
+  
+  # Utilities
+  - pip:
+    - python-dotenv==1.0.0
+    - click==8.1.7
+    - rich==13.7.0
+    - typer==0.9.0
+  
+  # Code quality
+  - pip:
+    - black==23.11.0
+    - isort==5.12.0
+    - mypy==1.7.1
+    - flake8==6.1.0
+    - bandit==1.7.5
+  
+  # System dependencies
+  - gcc
+  - g++
+  - make

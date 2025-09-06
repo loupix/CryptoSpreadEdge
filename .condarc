@@ -1,0 +1,47 @@
+# Configuration conda pour CryptoSpreadEdge
+
+# Canaux prioritaires
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+
+# Configuration des canaux
+channel_priority: flexible
+
+# Configuration des solveurs
+solver: libmamba
+
+# Configuration des environnements
+envs_dirs:
+  - ./envs
+  - ~/.conda/envs
+
+# Configuration des packages
+create_default_packages:
+  - pip
+  - python
+
+# Configuration des proxies (décommentez si nécessaire)
+# proxy_servers:
+#   http: http://proxy.company.com:8080
+#   https: https://proxy.company.com:8080
+
+# Configuration de la sécurité
+ssl_verify: true
+
+# Configuration des logs
+log_level: info
+
+# Configuration des téléchargements
+download_only: false
+always_yes: false
+
+# Configuration des environnements virtuels
+auto_activate_base: false
+
+# Configuration des mises à jour
+update_modifier: update_specs
+
+# Configuration des conflits
+allow_softlinks: true

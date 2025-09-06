@@ -39,26 +39,49 @@ Le projet suit une architecture modulaire avec les composants suivants :
 ### Prérequis
 
 - Python 3.11+
+- Conda (Miniconda ou Anaconda)
 - Docker et Docker Swarm
 - Redis
 - InfluxDB
 
-### Installation locale
+### Installation avec Conda (Recommandé)
 
 ```bash
 # Cloner le repository
-git clone https://github.com/username/CryptoSpreadEdge.git
+git clone https://github.com/loupix/CryptoSpreadEdge.git
 cd CryptoSpreadEdge
+
+# Méthode 1: Script automatique
+python start.py setup dev
+
+# Méthode 2: Gestionnaire conda
+python scripts/setup/conda-manager.py create dev
+python scripts/setup/conda-manager.py setup
+
+# Méthode 3: Manuel
+conda env create -f environment-dev.yml
+conda activate cryptospreadedge-dev
+```
+
+### Installation avec pip (Alternative)
+
+```bash
+# Cloner le repository
+git clone https://github.com/loupix/CryptoSpreadEdge.git
+cd CryptoSpreadEdge
+
+# Créer un environnement virtuel
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate     # Windows
 
 # Installer les dépendances
 pip install -r requirements.txt
 
 # Configuration
-cp config/environments/.env.example config/environments/.env
+cp config/environments/env.example config/environments/.env
 # Éditer le fichier .env avec vos clés API
-
-# Lancer les services
-docker-compose up -d
 ```
 
 ### Déploiement Docker Swarm
@@ -83,15 +106,48 @@ docker stack deploy -c infrastructure/docker/swarm/docker-stack.yml cryptospread
 ### Démarrage rapide
 
 ```bash
-# Lancer le système complet
+# Méthode 1: Script de démarrage (recommandé)
+python start.py run dev      # Mode développement
+python start.py run prod     # Mode production
+python start.py test         # Lancer les tests
+python start.py status       # Voir le statut
+
+# Méthode 2: Manuel
+conda activate cryptospreadedge-dev
 python -m src.main
 
-# Lancer seulement les connecteurs de données
-python -m src.connectors.main
-
-# Lancer les stratégies d'IA
-python -m src.ai.main
+# Méthode 3: Direct
+python -m src.main
 ```
+
+### Gestion des environnements
+
+```bash
+# Créer un environnement
+python scripts/setup/conda-manager.py create dev
+python scripts/setup/conda-manager.py create prod
+python scripts/setup/conda-manager.py create test
+
+# Activer un environnement
+conda activate cryptospreadedge-dev
+conda activate cryptospreadedge-prod
+conda activate cryptospreadedge-test
+
+# Mettre à jour un environnement
+python scripts/setup/conda-manager.py update dev
+
+# Supprimer un environnement
+python scripts/setup/conda-manager.py remove dev
+
+# Lister les environnements
+python scripts/setup/conda-manager.py list
+```
+
+### Types d'environnements
+
+- **dev** : Environnement de développement (léger, CPU seulement)
+- **prod** : Environnement de production (complet, GPU support)
+- **test** : Environnement de test (minimal, pour les tests)
 
 ### API
 
