@@ -8,6 +8,8 @@ import signal
 import sys
 from typing import Optional
 
+from fastapi import FastAPI
+
 from .core.trading_engine.engine import TradingEngine, TradingConfig
 from .core.market_data.market_data_manager import MarketDataManager, MarketDataConfig, DataSource
 from .core.order_management.order_manager import OrderManager, OrderManagerConfig
@@ -16,6 +18,7 @@ from .arbitrage.arbitrage_engine import arbitrage_engine
 from .arbitrage.price_monitor import price_monitor
 from .arbitrage.execution_engine import execution_engine
 from .arbitrage.risk_manager import arbitrage_risk_manager
+from .api.rest.indicators_api import router as indicators_router
 
 
 # Configuration du logging
@@ -38,6 +41,8 @@ class CryptoSpreadEdgeApp:
         self.trading_engine: Optional[TradingEngine] = None
         self.arbitrage_enabled = True
         self.running = False
+        self.app = FastAPI(title="CryptoSpreadEdge")
+        self._register_routes()
         
     async def initialize(self) -> None:
         """Initialise l'application"""
@@ -223,6 +228,10 @@ class CryptoSpreadEdgeApp:
             }
         
         return status
+
+    def _register_routes(self) -> None:
+        """Enregistre les routes FastAPI"""
+        self.app.include_router(indicators_router)
 
 
 async def main():
