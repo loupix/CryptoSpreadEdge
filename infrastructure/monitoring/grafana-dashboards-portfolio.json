@@ -1,0 +1,175 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Portfolio Rebalance Dashboard",
+    "tags": ["portfolio", "rebalance", "crypto"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Portfolio Value Over Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "portfolio_total_value",
+            "legendFormat": "Total Value (USD)"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "USD",
+            "min": 0
+          }
+        ],
+        "xAxes": [
+          {
+            "type": "time"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Rebalance Orders Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(portfolio_rebalance_orders_placed_total[5m]))",
+            "legendFormat": "Orders Placed/min"
+          },
+          {
+            "expr": "sum(rate(portfolio_rebalance_orders_skipped_total[5m]))",
+            "legendFormat": "Orders Skipped/min"
+          }
+        ],
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Transaction Costs",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(portfolio_rebalance_transaction_costs_total[5m])",
+            "legendFormat": "Costs/min (USD)"
+          }
+        ],
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 18,
+          "y": 0
+        }
+      },
+      {
+        "id": 4,
+        "title": "Volatility Target vs Actual",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "portfolio_rebalance_target_volatility",
+            "legendFormat": "Target Volatility"
+          },
+          {
+            "expr": "portfolio_rebalance_actual_volatility",
+            "legendFormat": "Actual Volatility"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 5,
+        "title": "Backoff Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "portfolio_rebalance_backoff_active",
+            "legendFormat": "Backoff Active"
+          },
+          {
+            "expr": "portfolio_rebalance_current_interval",
+            "legendFormat": "Current Interval (s)"
+          }
+        ],
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 6,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(portfolio_rebalance_errors_total[5m])",
+            "legendFormat": "Errors/min"
+          }
+        ],
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 18,
+          "y": 8
+        }
+      },
+      {
+        "id": 7,
+        "title": "Portfolio Allocation by Symbol",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "portfolio_symbol_allocation",
+            "legendFormat": "{{symbol}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        }
+      },
+      {
+        "id": 8,
+        "title": "PnL by Exchange",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "portfolio_exchange_pnl",
+            "legendFormat": "{{exchange}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "5s"
+  }
+}

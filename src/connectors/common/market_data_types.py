@@ -95,10 +95,13 @@ class Order:
     """Ordre de trading"""
     symbol: str
     side: OrderSide
-    order_type: OrderType
     quantity: float
+    order_type: Optional[OrderType] = None
     price: Optional[float] = None
     stop_price: Optional[float] = None
+    id: str = ""
+    exchange: str = ""
+    type: Optional[OrderType] = None
     order_id: str = ""
     status: OrderStatus = OrderStatus.PENDING
     filled_quantity: float = 0.0
@@ -107,6 +110,15 @@ class Order:
     source: str = ""
     
     def __post_init__(self):
+        # Support alias: certains tests utilisent `id` au lieu de `order_id`
+        if self.order_id == "" and self.id:
+            self.order_id = self.id
+        # Alias: certains tests passent `exchange` au lieu de `source`
+        if not self.source and self.exchange:
+            self.source = self.exchange
+        # Alias: certains tests passent `type` au lieu de `order_type`
+        if self.type is not None and self.order_type is None:
+            self.order_type = self.type
         if self.timestamp is None:
             self.timestamp = datetime.utcnow()
 

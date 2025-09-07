@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from .common.base_connector import BaseConnector
 from .supported_exchanges import ALL_EXCHANGES, get_arbitrage_candidates, get_market_data_sources
 from .common.market_data_types import MarketData, Order, Position, Balance
+from utils.common.decorators import retry, timeout
 
 
 class ConnectorFactory:
@@ -76,6 +77,16 @@ class ConnectorFactory:
             
             # Créer l'instance du connecteur
             connector = connector_class(api_key=api_key, secret_key=secret_key, **kwargs)
+
+            # Appliquer des wrappers de résilience sur méthodes I/O critiques si absentes
+            for attr in ["get_ticker", "get_order_book", "get_trades", "place_order", "get_market_data"]:
+                if hasattr(connector, attr):
+                    fn = getattr(connector, attr)
+                    if callable(fn):
+                        wrapped = retry((Exception,), attempts=3, delay_seconds=0.2, backoff=2.0)(
+                            timeout(5.0)(fn)
+                        )
+                        setattr(connector, attr, wrapped)
             
             # Stocker le connecteur
             self._connectors[exchange_id] = connector
