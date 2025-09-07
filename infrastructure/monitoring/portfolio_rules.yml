@@ -1,0 +1,116 @@
+groups:
+  - name: portfolio_rebalance
+    rules:
+      # Alerte si le rebalance échoue trop souvent
+      - alert: PortfolioRebalanceHighFailureRate
+        expr: rate(portfolio_rebalance_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux d'échec élevé du rebalance de portefeuille"
+          description: "Le taux d'échec du rebalance est de {{ $value }} erreurs/seconde"
+
+      # Alerte si trop d'ordres sont ignorés
+      - alert: PortfolioRebalanceTooManyOrdersSkipped
+        expr: rate(portfolio_rebalance_orders_skipped_total[5m]) > 0.5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Trop d'ordres de rebalance ignorés"
+          description: "{{ $value }} ordres/seconde sont ignorés"
+
+      # Alerte si le backoff est activé trop souvent
+      - alert: PortfolioRebalanceFrequentBackoff
+        expr: rate(portfolio_rebalance_backoff_activations_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backoff du rebalance activé fréquemment"
+          description: "Le backoff s'active {{ $value }} fois/minute"
+
+      # Alerte si les coûts de transaction sont trop élevés
+      - alert: PortfolioRebalanceHighTransactionCosts
+        expr: rate(portfolio_rebalance_transaction_costs_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Coûts de transaction élevés"
+          description: "{{ $value }} USD/minute en coûts de transaction"
+
+      # Alerte si la volatilité cible n'est pas atteinte
+      - alert: PortfolioRebalanceVolatilityTargetMissed
+        expr: abs(portfolio_rebalance_actual_volatility - portfolio_rebalance_target_volatility) > 0.005
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Volatilité cible non atteinte"
+          description: "Différence: {{ $value }} (cible: {{ $labels.target_vol }})"
+
+  - name: portfolio_performance
+    rules:
+      # Alerte si le PnL du portefeuille est négatif
+      - alert: PortfolioNegativePnL
+        expr: portfolio_total_pnl < -1000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Portefeuille en perte significative"
+          description: "PnL: {{ $value }} USD"
+
+      # Alerte si la corrélation entre positions est trop élevée
+      - alert: PortfolioHighCorrelation
+        expr: portfolio_max_correlation > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Corrélation élevée entre positions"
+          description: "Corrélation max: {{ $value }}"
+
+      # Alerte si le drawdown est trop important
+      - alert: PortfolioHighDrawdown
+        expr: portfolio_max_drawdown > 0.1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Drawdown élevé du portefeuille"
+          description: "Drawdown: {{ $value }}%"
+
+  - name: system_health
+    rules:
+      # Alerte si un service est down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} est down"
+          description: "Le service {{ $labels.job }} n'est pas accessible"
+
+      # Alerte si la mémoire est saturée
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Utilisation mémoire élevée"
+          description: "{{ $value }}% de mémoire utilisée"
+
+      # Alerte si le CPU est saturé
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Utilisation CPU élevée"
+          description: "{{ $value }}% de CPU utilisé"

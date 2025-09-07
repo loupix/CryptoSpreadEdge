@@ -43,3 +43,8 @@ class SymbolNormalizer:
         # Currently, same rule for all.
         return [self._default_strategy.normalize(sym) for sym in raw_symbols]
 
+
+# Utilitaire simple pour compatibilité: normaliser un seul symbole
+def normalize_symbol(raw_symbol: str) -> str:
+    return DefaultUSDTStrategy().normalize(raw_symbol)
+

@@ -227,6 +227,40 @@ python start.py status
 ```
 
 ## Configuration Avancée
+### Rebalance de portefeuille (multi-plateformes)
+
+Le moteur intègre un scheduler de rebalance automatique, configurable via variables d'environnement et/ou flags CLI.
+
+- Activer: `CSE_REBALANCE_ENABLED=1`, intervalle: `CSE_REBALANCE_INTERVAL=300`
+- Méthode: `CSE_REBALANCE_METHOD=rp|mv`, contraintes: `CSE_REBALANCE_MIN_WEIGHT`, `CSE_REBALANCE_MAX_WEIGHT`, `CSE_REBALANCE_LEVERAGE`
+- Covariance réelle (option): `CSE_REBALANCE_USE_REAL_COV=1`
+- Vol target (option): `CSE_REBALANCE_VOL_TARGET_ENABLED=1`, `CSE_REBALANCE_VOL_TARGET=0.01`
+- Exécution: dry-run `CSE_REBALANCE_DRY_RUN=1`, coût `CSE_REBALANCE_FEE_RATE`, slippage bps `CSE_REBALANCE_SLIPPAGE_BPS`, min notional `CSE_REBALANCE_MIN_NOTIONAL`
+- Garde-fous: `CSE_REBALANCE_MAX_ORDERS`, `CSE_REBALANCE_PER_EXCHANGE_CAP`, backoff `CSE_REBALANCE_BACKOFF_ENABLED`, `CSE_REBALANCE_BACKOFF_MULT`, `CSE_REBALANCE_BACKOFF_MAX`
+- Metrics Prometheus: `CSE_REBALANCE_PROMETHEUS=1`, port `CSE_REBALANCE_PROM_PORT` → GET `/metrics`
+
+Exemple PowerShell:
+
+```
+$env:CSE_REBALANCE_ENABLED="1"
+$env:CSE_REBALANCE_DRY_RUN="1"
+$env:CSE_REBALANCE_USE_REAL_COV="1"
+$env:CSE_REBALANCE_VOL_TARGET_ENABLED="1"
+$env:CSE_REBALANCE_VOL_TARGET="0.01"
+$env:CSE_REBALANCE_MAX_ORDERS="3"
+$env:CSE_REBALANCE_PROMETHEUS="1"
+$env:CSE_REBALANCE_PROM_PORT="9001"
+python scripts/trading/start_trading_system.py --mode live
+```
+
+CLI portefeuille:
+
+```
+python scripts/tools/portfolio_cli.py show
+python scripts/tools/portfolio_cli.py cov --symbols BTC ETH BNB --points 300
+python scripts/tools/portfolio_cli.py rebalance --method rp
+```
+
 
 ### Paramètres des Indicateurs
 

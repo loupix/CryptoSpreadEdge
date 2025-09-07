@@ -1,0 +1,58 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "portfolio_rules.yml"
+
+scrape_configs:
+  # Métriques de rebalance de portefeuille
+  - job_name: 'portfolio-rebalance'
+    static_configs:
+      - targets: ['cryptospreadedge-main:9001', 'portfolio-rebalancer:9001']
+    scrape_interval: 10s
+    metrics_path: '/metrics'
+    params:
+      format: ['prometheus']
+
+  # Métriques générales de l'application
+  - job_name: 'cryptospreadedge'
+    static_configs:
+      - targets: ['cryptospreadedge-main:8000']
+    scrape_interval: 30s
+
+  # Métriques d'arbitrage
+  - job_name: 'arbitrage'
+    static_configs:
+      - targets: ['arbitrage-worker:8000']
+    scrape_interval: 30s
+
+  # Métriques système
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Métriques Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+
+  # Métriques InfluxDB
+  - job_name: 'influxdb'
+    static_configs:
+      - targets: ['influxdb:8086']
+    scrape_interval: 30s
+
+  # Métriques Kafka
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+    scrape_interval: 30s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
