@@ -554,6 +554,9 @@ async def main():
                        help='Valeur minimale d\'ordre pour exécuter la correction')
     parser.add_argument('--rebalance-env-file', type=str, default=None,
                        help='Fichier .env à charger (CSE_REBALANCE_*)')
+    parser.add_argument('--rebalance-dry-run', type=str, choices=['0','1','true','false','True','False'], default=None, help='Ne pas exécuter les ordres, seulement logguer')
+    parser.add_argument('--rebalance-max-orders', type=int, default=None, help='Nombre max d ordres par cycle')
+    parser.add_argument('--rebalance-per-exchange-cap', type=float, default=None, help='Plafond de valeur par exchange')
     
     args = parser.parse_args()
     
@@ -580,6 +583,12 @@ async def main():
         os.environ['CSE_REBALANCE_TRADE_THRESHOLD'] = str(args.rebalance_trade_threshold)
     if args.rebalance_env_file is not None:
         os.environ['CSE_REBALANCE_ENV_FILE'] = args.rebalance_env_file
+    if args.rebalance_dry_run is not None:
+        os.environ['CSE_REBALANCE_DRY_RUN'] = args.rebalance_dry_run
+    if args.rebalance_max_orders is not None:
+        os.environ['CSE_REBALANCE_MAX_ORDERS'] = str(args.rebalance_max_orders)
+    if args.rebalance_per_exchange_cap is not None:
+        os.environ['CSE_REBALANCE_PER_EXCHANGE_CAP'] = str(args.rebalance_per_exchange_cap)
     
     # Créer le système
     system = TradingSystem()

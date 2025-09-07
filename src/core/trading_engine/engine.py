@@ -45,6 +45,9 @@ class TradingConfig:
     rebalance_target_leverage: float = 1.0
     rebalance_risk_aversion: float = 3.0
     rebalance_trade_threshold_value: float = 100.0  # Valeur minimale d'ordre
+    rebalance_dry_run: bool = False
+    rebalance_max_orders_per_cycle: int = 10
+    rebalance_per_exchange_cap_value: float = 0.0  # 0 = désactivé
 
 
 class TradingEngine:
@@ -100,6 +103,12 @@ class TradingEngine:
                 self.config.rebalance_risk_aversion = float(os.environ.get('CSE_REBALANCE_RISK_AVERSION', self.config.rebalance_risk_aversion))
             if 'CSE_REBALANCE_TRADE_THRESHOLD' in os.environ:
                 self.config.rebalance_trade_threshold_value = float(os.environ.get('CSE_REBALANCE_TRADE_THRESHOLD', self.config.rebalance_trade_threshold_value))
+            if 'CSE_REBALANCE_DRY_RUN' in os.environ:
+                self.config.rebalance_dry_run = os.environ.get('CSE_REBALANCE_DRY_RUN', '0') not in ['0', 'false', 'False']
+            if 'CSE_REBALANCE_MAX_ORDERS' in os.environ:
+                self.config.rebalance_max_orders_per_cycle = int(os.environ.get('CSE_REBALANCE_MAX_ORDERS', self.config.rebalance_max_orders_per_cycle))
+            if 'CSE_REBALANCE_PER_EXCHANGE_CAP' in os.environ:
+                self.config.rebalance_per_exchange_cap_value = float(os.environ.get('CSE_REBALANCE_PER_EXCHANGE_CAP', self.config.rebalance_per_exchange_cap_value))
         except Exception as _:
             # Ne pas bloquer le démarrage si parsing env échoue
             pass
@@ -484,6 +493,21 @@ class TradingEngine:
                     continue
 
                 # Déterminer écarts et créer ordres seuilés
+                orders_placed = 0
+                # Exposition par exchange (approx): somme des valeurs symboles dont sources contiennent l'exchange
+                exposure_by_exchange: Dict[str, float] = {}
+                for sym, info in consolidated.items():
+                    price = float(price_lookup.get(sym.upper(), 0.0))
+                    if price <= 0:
+                        continue
+                    qty = float(info.get('quantity', 0.0))
+                    val = qty * price
+                    for ex, ex_qty in info.get('exchanges', {}).items():
+                        share = 0.0
+                        if qty > 0:
+                            share = (ex_qty / qty) * val
+                        exposure_by_exchange[ex] = exposure_by_exchange.get(ex, 0.0) + max(share, 0.0)
+
                 for sym, tgt_w in target_weights.items():
                     price = float(price_lookup.get(sym.upper(), 0.0))
                     if price <= 0:
@@ -497,6 +521,23 @@ class TradingEngine:
 
                     qty = abs(delta_value) / price
 
+                    # Respecter limite d'ordres par cycle
+                    if self.config.rebalance_max_orders_per_cycle > 0 and orders_placed >= self.config.rebalance_max_orders_per_cycle:
+                        break
+
+                    # Respecter plafond par exchange si actif
+                    if self.config.rebalance_per_exchange_cap_value > 0:
+                        # Choisir un exchange candidat: utiliser la première source si connue
+                        target_exchange = None
+                        # consolidated[sym] contient 'sources' si présent
+                        if sym in consolidated and 'sources' in consolidated[sym] and consolidated[sym]['sources']:
+                            target_exchange = consolidated[sym]['sources'][0]
+                        if target_exchange:
+                            current_exposure = exposure_by_exchange.get(target_exchange, 0.0)
+                            projected = current_exposure + max(delta_value, 0.0)
+                            if projected > self.config.rebalance_per_exchange_cap_value:
+                                continue
+
                     # Construire et placer l'ordre (simplifié: MARKET, côté selon signe)
                     try:
                         from ..connectors.common.market_data_types import Order, OrderSide, OrderType
@@ -507,8 +548,12 @@ class TradingEngine:
                             quantity=qty,
                             timestamp=datetime.utcnow()
                         )
-                        await self.order_manager.place_order(order)
-                        self.logger.info(f"Rebalance: {order.side.value} {qty:.6f} {sym} @~{price:.4f}")
+                        if self.config.rebalance_dry_run:
+                            self.logger.info(f"[DRY-RUN] Rebalance: {order.side.value} {qty:.6f} {sym} @~{price:.4f}")
+                        else:
+                            await self.order_manager.place_order(order)
+                            self.logger.info(f"Rebalance: {order.side.value} {qty:.6f} {sym} @~{price:.4f}")
+                            orders_placed += 1
                     except Exception as place_exc:
                         self.logger.warning(f"Échec placement ordre de rebalance {sym}: {place_exc}")
 
