@@ -25,6 +25,7 @@ CryptoSpreadEdge est une plateforme de trading automatisée pour les cryptomonna
 Le projet suit une architecture modulaire avec les composants suivants :
 
 - **Core** : Moteur de trading, gestion des données de marché, ordres et risques
+- **Frontend** : Interface React moderne avec trading, monitoring et administration
 - **Connectors** : Connecteurs pour les différentes plateformes d'échange
 - **AI** : Modèles d'IA, stratégies de trading et backtesting
 - **Data** : Gestion des données temps réel, stockage et analytics
@@ -34,6 +35,7 @@ Le projet suit une architecture modulaire avec les composants suivants :
 ## Technologies utilisées
 
 - **Backend** : Python 3.11+, FastAPI, asyncio
+- **Frontend** : React 18, TypeScript, Material-UI v5
 - **Trading** : CCXT, WebSockets, Redis, InfluxDB
 - **Base de données** : PostgreSQL, SQLAlchemy, asyncpg
 - **IA/ML** : PyTorch, TensorFlow, scikit-learn, TA-Lib
@@ -210,6 +212,33 @@ isort src/
 # Vérification des types
 mypy src/
 ```
+
+## Frontend
+
+Le frontend React de CryptoSpreadEdge offre une interface utilisateur moderne et complète :
+
+### Fonctionnalités Frontend
+- **Interface de Trading** : Ordres, positions, trades en temps réel
+- **Gestion des Utilisateurs** : Administration, rôles, permissions
+- **Données Historiques** : Ordres, positions, trades, portefeuille
+- **Configuration des Exchanges** : Multi-plateformes (Binance, Coinbase, etc.)
+- **Monitoring** : Performance système et optimisation
+- **Sécurité** : Authentification, autorisation, audit trail
+
+### Démarrage Frontend
+```bash
+cd frontend
+npm install
+cp env.example .env
+npm start
+```
+
+### Documentation Frontend
+Toute la documentation détaillée du frontend est disponible dans [`docs/frontend/`](docs/frontend/) :
+- [Documentation principale](docs/frontend/README.md)
+- [Intégration base de données](docs/frontend/FRONTEND_DATABASE_INTEGRATION.md)
+- [Résumé des fonctionnalités](docs/frontend/FRONTEND_COMPLETE_SUMMARY.md)
+- [Résumé du développement](docs/frontend/FRONTEND_DEVELOPMENT_COMPLETE.md)
 
 ## Contribution
 

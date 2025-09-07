@@ -22,6 +22,11 @@ import {
   Analytics as AnalyticsIcon,
   Psychology as PsychologyIcon,
   CompareArrows as CompareArrowsIcon,
+  History as HistoryIcon,
+  People as PeopleIcon,
+  Speed as SpeedIcon,
+  AccountBalance as AccountBalanceIcon,
+  PlayArrow as PlayArrowIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -38,6 +43,11 @@ const menuItems = [
   { text: 'Indicateurs', icon: <AnalyticsIcon />, path: '/indicators' },
   { text: 'Prédictions', icon: <PsychologyIcon />, path: '/predictions' },
   { text: 'Arbitrage', icon: <CompareArrowsIcon />, path: '/arbitrage' },
+  { text: 'Trading', icon: <PlayArrowIcon />, path: '/trading' },
+  { text: 'Données Historiques', icon: <HistoryIcon />, path: '/historical-data' },
+  { text: 'Utilisateurs', icon: <PeopleIcon />, path: '/users' },
+  { text: 'Performance', icon: <SpeedIcon />, path: '/performance' },
+  { text: 'Exchanges', icon: <AccountBalanceIcon />, path: '/exchanges' },
   { text: 'Paramètres', icon: <SettingsIcon />, path: '/settings' },
 ];
 
