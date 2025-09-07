@@ -19,6 +19,7 @@ from .arbitrage.price_monitor import price_monitor
 from .arbitrage.execution_engine import execution_engine
 from .arbitrage.risk_manager import arbitrage_risk_manager
 from .api.rest.indicators_api import router as indicators_router
+from .api.rest.mobile_api import router as mobile_router
 
 
 # Configuration du logging
@@ -232,6 +233,7 @@ class CryptoSpreadEdgeApp:
     def _register_routes(self) -> None:
         """Enregistre les routes FastAPI"""
         self.app.include_router(indicators_router)
+        self.app.include_router(mobile_router)
 
 
 async def main():
