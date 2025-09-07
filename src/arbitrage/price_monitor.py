@@ -4,6 +4,7 @@ Système de monitoring des prix pour l'arbitrage
 
 import asyncio
 import logging
+import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -66,13 +67,18 @@ class PriceMonitor:
             "alerts_triggered": 0,
             "avg_update_time": 0.0
         }
+
+    # Compatibilité rapide: certaines parties du moteur peuvent appeler update_price_cache
+    # Expose un no-op pour éviter des erreurs si utilisé comme API publique.
+    async def update_price_cache(self, price_data) -> None:
+        return None
     
     async def start(self):
         """Démarre le monitoring des prix"""
         self.logger.info("Démarrage du monitoring des prix")
         self.is_running = True
-        
-        # Démarrer les tâches de monitoring
+
+        # Démarrer les tâches de monitoring (toujours non bloquant)
         tasks = [
             self._monitor_exchange_prices(),
             self._monitor_data_sources(),
@@ -80,13 +86,19 @@ class PriceMonitor:
             self._detect_volume_spikes(),
             self._cleanup_old_data()
         ]
-        
-        await asyncio.gather(*tasks)
+        self._tasks = [asyncio.create_task(t) for t in tasks]
+        return
     
     async def stop(self):
         """Arrête le monitoring des prix"""
         self.logger.info("Arrêt du monitoring des prix")
         self.is_running = False
+        # Annuler les tâches si en mode non bloquant
+        tasks = getattr(self, "_tasks", None)
+        if tasks:
+            for t in tasks:
+                t.cancel()
+            self._tasks = []
     
     async def _monitor_exchange_prices(self):
         """Surveille les prix des exchanges"""
@@ -94,8 +106,15 @@ class PriceMonitor:
             try:
                 start_time = time.time()
                 
-                # Symboles à surveiller
-                symbols = ["BTC", "ETH", "BNB", "ADA", "DOT", "LINK", "LTC", "BCH", "XRP", "EOS"]
+                # Symboles à surveiller (peuvent être fournis via env CSE_SYMBOLS, ex: BTC/USDT,ETH/USDT)
+                env_symbols = os.environ.get("CSE_SYMBOLS", "").strip()
+                if env_symbols:
+                    symbols = [s.strip() for s in env_symbols.split(",") if s.strip()]
+                else:
+                    symbols = [
+                        "BTC/USDT", "ETH/USDT", "BNB/USDT", "ADA/USDT", "DOT/USDT",
+                        "LINK/USDT", "LTC/USDT", "BCH/USDT", "XRP/USDT", "EOS/USDT"
+                    ]
                 
                 # Récupérer les prix de tous les exchanges connectés
                 for exchange_id, connector in connector_factory.get_all_connectors().items():
@@ -139,6 +158,11 @@ class PriceMonitor:
     
     async def _monitor_data_sources(self):
         """Surveille les sources de données alternatives"""
+        # Permettre de désactiver les appels externes pour les runs ultra-courts
+        if os.environ.get("CSE_NO_ALT", "0") == "1":
+            while self.is_running:
+                await asyncio.sleep(self.update_interval)
+            return
         while self.is_running:
             try:
                 symbols = ["BTC", "ETH", "BNB", "ADA", "DOT", "LINK", "LTC", "BCH", "XRP", "EOS"]
