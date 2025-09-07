@@ -1,0 +1,291 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'cryptospreadedge'
+    environment: 'production'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus lui-même
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Nœuds du cluster
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Conteneurs Docker
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Kafka
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Services CryptoSpreadEdge
+  - job_name: 'cryptospreadedge-services'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'signals-service:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+        - 'backtesting-service:8000'
+        - 'monitoring-service:8000'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+
+  # Métriques personnalisées des services
+  - job_name: 'cryptospreadedge-custom'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'signals-service:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+        - 'backtesting-service:8000'
+        - 'monitoring-service:8000'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    params:
+      format: ['prometheus']
+
+  # Health checks des services
+  - job_name: 'cryptospreadedge-health'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'signals-service:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+        - 'backtesting-service:8000'
+        - 'monitoring-service:8000'
+    scrape_interval: 60s
+    metrics_path: /health
+    params:
+      format: ['json']
+
+  # Métriques de trading
+  - job_name: 'trading-metrics'
+    static_configs:
+      - targets: 
+        - 'arbitrage-service:8000'
+        - 'positions-service:8000'
+        - 'signals-service:8000'
+    scrape_interval: 10s
+    metrics_path: /metrics
+    params:
+      type: ['trading']
+
+  # Métriques de performance
+  - job_name: 'performance-metrics'
+    static_configs:
+      - targets: 
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'market-data-service:8000'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    params:
+      type: ['performance']
+
+  # Métriques de cache
+  - job_name: 'cache-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+    scrape_interval: 30s
+    metrics_path: /cache/stats
+    params:
+      format: ['json']
+
+  # Métriques de réseau
+  - job_name: 'network-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'signals-service:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+        - 'backtesting-service:8000'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    params:
+      type: ['network']
+
+  # Métriques de base de données
+  - job_name: 'database-metrics'
+    static_configs:
+      - targets: 
+        - 'postgres-cluster:5432'
+        - 'redis-cluster:6379'
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Métriques de messagerie
+  - job_name: 'messaging-metrics'
+    static_configs:
+      - targets: 
+        - 'kafka-cluster:9092'
+        - 'zookeeper:2181'
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Métriques de sécurité
+  - job_name: 'security-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+    scrape_interval: 60s
+    metrics_path: /metrics
+    params:
+      type: ['security']
+
+  # Métriques de business
+  - job_name: 'business-metrics'
+    static_configs:
+      - targets: 
+        - 'arbitrage-service:8000'
+        - 'positions-service:8000'
+        - 'backtesting-service:8000'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    params:
+      type: ['business']
+
+  # Métriques de qualité
+  - job_name: 'quality-metrics'
+    static_configs:
+      - targets: 
+        - 'prediction-service:8000'
+        - 'indicators-service:8000'
+        - 'signals-service:8000'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    params:
+      type: ['quality']
+
+  # Métriques de latence
+  - job_name: 'latency-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'arbitrage-service:8000'
+    scrape_interval: 10s
+    metrics_path: /metrics
+    params:
+      type: ['latency']
+
+  # Métriques de throughput
+  - job_name: 'throughput-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'arbitrage-service:8000'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    params:
+      type: ['throughput']
+
+  # Métriques d'erreurs
+  - job_name: 'error-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'signals-service:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+        - 'backtesting-service:8000'
+        - 'monitoring-service:8000'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    params:
+      type: ['errors']
+
+  # Métriques de ressources
+  - job_name: 'resource-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'signals-service:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+        - 'backtesting-service:8000'
+        - 'monitoring-service:8000'
+    scrape_interval: 30s
+    metrics_path: /metrics
+    params:
+      type: ['resources']
+
+  # Métriques de disponibilité
+  - job_name: 'availability-metrics'
+    static_configs:
+      - targets: 
+        - 'api-gateway:8000'
+        - 'market-data-service:8000'
+        - 'indicators-service:8000'
+        - 'prediction-service:8000'
+        - 'signals-service:8000'
+        - 'positions-service:8000'
+        - 'arbitrage-service:8000'
+        - 'backtesting-service:8000'
+        - 'monitoring-service:8000'
+    scrape_interval: 60s
+    metrics_path: /health
+    params:
+      format: ['json']

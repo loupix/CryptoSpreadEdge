@@ -1,5 +1,7 @@
 # CryptoSpreadEdge
 
+![Tests](https://github.com/loupix/CryptoSpreadEdge/actions/workflows/tests.yml/badge.svg)
+
 Système de trading crypto haute fréquence avec intelligence artificielle et déploiement Docker Swarm.
 
 ## Vue d'ensemble
@@ -182,9 +184,18 @@ pytest tests/unit
 # Tests d'intégration
 pytest tests/integration
 
+# Tests end-to-end
+pytest tests/e2e
+
 # Tests de performance
 pytest tests/performance
 ```
+
+#### Notes sur l'exécution des tests
+
+- Certains tests externes (deep learning, prédiction) requièrent `torch` ou `ta-lib`. Ils ne sont pas inclus par défaut.
+- Pour exécuter notre pipeline d'indicateurs sans ces dépendances: `pytest -k "not deep_learning and not prediction"`.
+- La CI exécute automatiquement `tests/unit` et `tests/integration` sur chaque PR, et `tests/e2e` sur la branche `main`.
 
 ### Formatage du code
 
