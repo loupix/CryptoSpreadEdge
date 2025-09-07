@@ -283,3 +283,18 @@ Le système CryptoSpreadEdge est maintenant **complètement fonctionnel** avec :
 ---
 
 *Développé avec ❤️ pour la communauté crypto*
+
+## Gestion des clés API (Données)
+
+Un script CLI est fourni pour gérer les clés de données chiffrées:
+
+```
+python scripts/setup/configure_api_keys.py load-env
+python scripts/setup/configure_api_keys.py set coinmarketcap VOTRE_CLE
+python scripts/setup/configure_api_keys.py list
+python scripts/setup/configure_api_keys.py export api_keys_export.json
+python scripts/setup/configure_api_keys.py import api_keys_import.json
+```
+
+Les sources activées sont définies dans `config/arbitrage_config.py` via `DATA_SOURCES`.
+Les clés stockées via le gestionnaire chiffré ont priorité sur celles présentes dans `DATA_SOURCES`.

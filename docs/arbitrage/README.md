@@ -91,6 +91,40 @@ python start.py run dev
 - `test_arbitrage_system.py` - Lance les tests du système
 - `start.py` - Démarre l'application complète avec arbitrage
 
+### Gestion des clés API
+
+Pour configurer les clés de données (CoinMarketCap, CryptoCompare, Glassnode, etc.) de manière sécurisée:
+
+1) Charger depuis les variables d'environnement si disponibles
+
+```
+python scripts/setup/configure_api_keys.py load-env
+```
+
+Variables supportées: `CMC_API_KEY`, `CRYPTOCOMPARE_API_KEY`, `GLASSNODE_API_KEY`, `MESSARI_API_KEY`.
+
+2) Ajouter manuellement une clé
+
+```
+python scripts/setup/configure_api_keys.py set coinmarketcap VOTRE_CLE
+python scripts/setup/configure_api_keys.py set cryptocompare VOTRE_CLE
+```
+
+3) Vérifier les clés enregistrées
+
+```
+python scripts/setup/configure_api_keys.py list
+```
+
+4) Exporter / Importer
+
+```
+python scripts/setup/configure_api_keys.py export api_keys_export.json
+python scripts/setup/configure_api_keys.py import api_keys_import.json
+```
+
+Les sources activées sont contrôlées dans `config/arbitrage_config.py` via `DATA_SOURCES` (champs `enabled`, `api_key`, `update_interval`). Les clés stockées via le gestionnaire chiffré ont priorité sur la clé figurant dans `DATA_SOURCES`.
+
 ## Configuration avancée
 
 ### Paramètres de détection
