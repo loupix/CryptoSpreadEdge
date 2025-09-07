@@ -13,6 +13,8 @@ from ..market_data.market_data_manager import MarketDataManager
 from ..order_management.order_manager import OrderManager
 from ..risk_management.risk_manager import RiskManager
 from ...portfolio.portfolio_service import portfolio_aggregator
+from ...portfolio.optimizer import optimizer
+from ...portfolio.portfolio_service import portfolio_aggregator
 
 
 class TradingState(Enum):
@@ -33,6 +35,15 @@ class TradingConfig:
     max_position_size: float = 10000.0
     trading_enabled: bool = True
     risk_management_enabled: bool = True
+    # Rebalance automatique
+    rebalance_enabled: bool = True
+    rebalance_interval_seconds: int = 300
+    rebalance_method: str = "rp"  # "mv" ou "rp"
+    rebalance_min_weight: float = 0.0
+    rebalance_max_weight: float = 0.3
+    rebalance_target_leverage: float = 1.0
+    rebalance_risk_aversion: float = 3.0
+    rebalance_trade_threshold_value: float = 100.0  # Valeur minimale d'ordre
 
 
 class TradingEngine:
@@ -79,7 +90,8 @@ class TradingEngine:
             self._tasks = [
                 asyncio.create_task(self._main_loop()),
                 asyncio.create_task(self._risk_monitoring_loop()),
-                asyncio.create_task(self._order_processing_loop())
+                asyncio.create_task(self._order_processing_loop()),
+                asyncio.create_task(self._rebalance_loop())
             ]
             
             self.state = TradingState.RUNNING
@@ -368,6 +380,105 @@ class TradingEngine:
         
         except Exception as e:
             self.logger.error(f"Erreur vérification actions positions: {e}")
+
+    async def _rebalance_loop(self) -> None:
+        """Boucle de rebalance automatique basée sur l'optimiseur de portefeuille."""
+        while self._running:
+            try:
+                if not self.config.rebalance_enabled or self.state != TradingState.RUNNING:
+                    await asyncio.sleep(1.0)
+                    continue
+
+                # Rafraîchir le portefeuille agrégé
+                await portfolio_aggregator.refresh()
+                consolidated = portfolio_aggregator.consolidate_positions()
+
+                # Construire un lookup de prix depuis le market data manager
+                market_data = await self.market_data_manager.get_latest_data()
+                price_lookup: Dict[str, float] = {}
+                for sym, data in market_data.items():
+                    if data and hasattr(data, 'ticker') and hasattr(data.ticker, 'price'):
+                        price_lookup[str(sym).upper()] = float(data.ticker.price)
+
+                # Si pas de données, attendre
+                if not consolidated or not price_lookup:
+                    await asyncio.sleep(self.config.rebalance_interval_seconds)
+                    continue
+
+                # Construire mu/cov naïfs (si aucune source fournie)
+                symbols = list(consolidated.keys())
+                expected_returns = {s: 0.0 for s in symbols}
+                cov_map = {}
+                for si in symbols:
+                    for sj in symbols:
+                        cov_map[(si, sj)] = 0.0 if si != sj else 1.0
+
+                # Calculer poids cibles
+                if self.config.rebalance_method == "mv":
+                    target_weights = optimizer.mean_variance_weights(
+                        expected_returns=expected_returns,
+                        covariance_matrix=cov_map,
+                        risk_aversion=self.config.rebalance_risk_aversion,
+                        min_weight=self.config.rebalance_min_weight,
+                        max_weight=self.config.rebalance_max_weight,
+                        target_leverage=self.config.rebalance_target_leverage,
+                    )
+                else:
+                    target_weights = optimizer.risk_parity_weights(
+                        covariance_matrix=cov_map,
+                        min_weight=self.config.rebalance_min_weight,
+                        max_weight=self.config.rebalance_max_weight,
+                        target_leverage=self.config.rebalance_target_leverage,
+                    )
+
+                # Calculer valeur totale estimée et expositions actuelles
+                total_equity = 0.0
+                current_value_by_sym: Dict[str, float] = {}
+                for sym, info in consolidated.items():
+                    price = float(price_lookup.get(sym.upper(), 0.0))
+                    qty = float(info.get('quantity', 0.0))
+                    val = qty * price
+                    current_value_by_sym[sym] = val
+                    total_equity += val
+
+                if total_equity <= 0:
+                    await asyncio.sleep(self.config.rebalance_interval_seconds)
+                    continue
+
+                # Déterminer écarts et créer ordres seuilés
+                for sym, tgt_w in target_weights.items():
+                    price = float(price_lookup.get(sym.upper(), 0.0))
+                    if price <= 0:
+                        continue
+                    target_value = tgt_w * total_equity
+                    delta_value = target_value - current_value_by_sym.get(sym, 0.0)
+
+                    # Ignorer petits ordres
+                    if abs(delta_value) < self.config.rebalance_trade_threshold_value:
+                        continue
+
+                    qty = abs(delta_value) / price
+
+                    # Construire et placer l'ordre (simplifié: MARKET, côté selon signe)
+                    try:
+                        from ..connectors.common.market_data_types import Order, OrderSide, OrderType
+                        order = Order(
+                            symbol=sym,
+                            side=OrderSide.BUY if delta_value > 0 else OrderSide.SELL,
+                            order_type=OrderType.MARKET,
+                            quantity=qty,
+                            timestamp=datetime.utcnow()
+                        )
+                        await self.order_manager.place_order(order)
+                        self.logger.info(f"Rebalance: {order.side.value} {qty:.6f} {sym} @~{price:.4f}")
+                    except Exception as place_exc:
+                        self.logger.warning(f"Échec placement ordre de rebalance {sym}: {place_exc}")
+
+                await asyncio.sleep(self.config.rebalance_interval_seconds)
+
+            except Exception as e:
+                self.logger.error(f"Erreur rebalance loop: {e}")
+                await asyncio.sleep(self.config.rebalance_interval_seconds)
     
     async def get_portfolio_snapshot(self) -> Dict[str, Any]:
         """Retourne un snapshot agrégé du portefeuille (balances + positions)."""
