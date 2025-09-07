@@ -14,6 +14,7 @@ from ..connectors.common.market_data_types import MarketData, Ticker, OrderBook,
 from ..connectors.connector_factory import connector_factory
 from .alternative_sources import alternative_sources
 from ...config.arbitrage_config import DATA_SOURCES
+from ...config.api_keys_manager import api_keys_manager
 
 
 @dataclass
@@ -53,6 +54,9 @@ class DataAggregator:
             
             connected_count = sum(1 for success in connection_results.values() if success)
             self.logger.info(f"Connecté à {connected_count} exchanges sur {len(connection_results)}")
+            
+            # Journaliser l'état des sources de données
+            self._log_sources_status()
             
         except Exception as e:
             self.logger.error(f"Erreur initialisation connecteurs: {e}")
@@ -387,6 +391,31 @@ class DataAggregator:
                 if connector.is_connected()
             ]
         }
+
+    def _log_sources_status(self):
+        """Log un diagnostic clair des sources activées et des clés présentes"""
+        try:
+            enabled_sources = [name for name, cfg in DATA_SOURCES.items() if cfg.enabled]
+            total_enabled = len(enabled_sources)
+            with_keys = []
+            without_keys = []
+            for name in enabled_sources:
+                creds = api_keys_manager.get_credentials_for_platform(name)
+                cfg = DATA_SOURCES.get(name)
+                has_key = bool(creds.get("api_key") or (cfg and cfg.api_key))
+                if has_key:
+                    with_keys.append(name)
+                else:
+                    without_keys.append(name)
+            self.logger.info(
+                f"Sources alternatives activées: {total_enabled} | avec clé: {len(with_keys)} | sans clé: {len(without_keys)}"
+            )
+            if with_keys:
+                self.logger.debug(f"Sources avec clé: {', '.join(sorted(with_keys))}")
+            if without_keys:
+                self.logger.debug(f"Sources sans clé: {', '.join(sorted(without_keys))}")
+        except Exception as e:
+            self.logger.error(f"Erreur diagnostic sources: {e}")
     
     def get_source_status(self) -> Dict[str, Dict[str, Any]]:
         """Retourne le statut de toutes les sources"""
