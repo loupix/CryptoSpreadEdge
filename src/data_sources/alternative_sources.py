@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 import aiohttp
 import json
 
-from ..connectors.common.market_data_types import MarketData, Ticker, OrderBook, Trade
-from ...config.arbitrage_config import DATA_SOURCES
-from ...config.api_keys_manager import api_keys_manager
+from connectors.common.market_data_types import MarketData, Ticker, OrderBook, Trade
+from config.arbitrage_config import DATA_SOURCES
+from config.api_keys_manager import api_keys_manager
 
 
 class AlternativeDataSources:

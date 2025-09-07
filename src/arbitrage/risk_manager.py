@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import statistics
 
-from .arbitrage_engine import ArbitrageOpportunity
-from ..connectors.connector_factory import connector_factory
+from arbitrage.arbitrage_engine import ArbitrageOpportunity
+from connectors.connector_factory import connector_factory
 
 
 @dataclass

@@ -6,33 +6,55 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import statistics
 import time
 
-from ..connectors.common.market_data_types import MarketData, Order, OrderSide, OrderType
-from ..connectors.connector_factory import connector_factory
-from ..data_sources.data_aggregator import data_aggregator
-from ...config.arbitrage_config import DATA_SOURCES
-from ..monitoring.data_source_monitor import data_source_monitor
+from connectors.common.market_data_types import MarketData, Order, OrderSide, OrderType
+from connectors.connector_factory import connector_factory
+from data_sources.data_aggregator import data_aggregator
+from config.arbitrage_config import DATA_SOURCES
+from monitoring.data_source_monitor import data_source_monitor
 
 
 @dataclass
 class ArbitrageOpportunity:
     """Opportunité d'arbitrage détectée"""
-    symbol: str
-    buy_exchange: str
-    sell_exchange: str
-    buy_price: float
-    sell_price: float
-    spread: float
-    spread_percentage: float
-    volume_available: float
-    max_profit: float
-    confidence: float
-    timestamp: datetime
-    execution_time_estimate: float  # en secondes
-    risk_score: float  # 0-1, plus élevé = plus risqué
+    symbol: str = ""
+    buy_exchange: str = ""
+    sell_exchange: str = ""
+    buy_price: float = 0.0
+    sell_price: float = 0.0
+    spread: float = 0.0
+    spread_percentage: float = 0.0
+    volume_available: float = 0.0
+    max_profit: float = 0.0
+    confidence: float = 0.0
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+    execution_time_estimate: float = 0.0  # en secondes
+    risk_score: float = 0.0  # 0-1, plus élevé = plus risqué
+
+    # Alias facultatifs pour compatibilité tests: seront mappés en __post_init__
+    buy_platform: Optional[str] = None
+    sell_platform: Optional[str] = None
+    expected_profit: Optional[float] = None
+    fees: Optional[float] = None
+    execution_time: Optional[float] = None
+
+    def __post_init__(self):
+        # Mapper les alias de plateformes vers les champs officiels
+        if self.buy_platform and not self.buy_exchange:
+            self.buy_exchange = self.buy_platform
+        if self.sell_platform and not self.sell_exchange:
+            self.sell_exchange = self.sell_platform
+
+        # Mapper expected_profit vers max_profit si fourni
+        if self.expected_profit is not None and (self.max_profit is None or self.max_profit == 0):
+            self.max_profit = self.expected_profit
+
+        # Mapper execution_time vers execution_time_estimate si fourni
+        if self.execution_time is not None and (self.execution_time_estimate is None or self.execution_time_estimate == 0):
+            self.execution_time_estimate = self.execution_time
 
 
 @dataclass

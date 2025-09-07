@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import time
 
-from ..connectors.common.market_data_types import Order, OrderSide, OrderType, OrderStatus
-from ..connectors.connector_factory import connector_factory
-from .arbitrage_engine import ArbitrageOpportunity, ArbitrageExecution
+from connectors.common.market_data_types import Order, OrderSide, OrderType, OrderStatus
+from connectors.connector_factory import connector_factory
+from arbitrage.arbitrage_engine import ArbitrageOpportunity, ArbitrageExecution
 
 
 @dataclass

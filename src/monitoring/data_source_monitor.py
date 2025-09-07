@@ -10,9 +10,9 @@ from dataclasses import dataclass
 import statistics
 import time
 
-from ..connectors.common.market_data_types import MarketData
-from ..connectors.connector_factory import connector_factory
-from ..data_sources.data_aggregator import data_aggregator
+from connectors.common.market_data_types import MarketData
+from connectors.connector_factory import connector_factory
+from data_sources.data_aggregator import data_aggregator
 
 
 @dataclass

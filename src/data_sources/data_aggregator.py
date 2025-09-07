@@ -10,11 +10,11 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import statistics
 
-from ..connectors.common.market_data_types import MarketData, Ticker, OrderBook, Trade
-from ..connectors.connector_factory import connector_factory
-from .alternative_sources import alternative_sources
-from ...config.arbitrage_config import DATA_SOURCES
-from ...config.api_keys_manager import api_keys_manager
+from connectors.common.market_data_types import MarketData, Ticker, OrderBook, Trade
+from connectors.connector_factory import connector_factory
+from data_sources.alternative_sources import alternative_sources
+from config.arbitrage_config import DATA_SOURCES
+from config.api_keys_manager import api_keys_manager
 
 
 @dataclass
