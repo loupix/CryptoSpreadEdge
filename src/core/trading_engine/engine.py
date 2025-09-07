@@ -12,6 +12,7 @@ from enum import Enum
 from ..market_data.market_data_manager import MarketDataManager
 from ..order_management.order_manager import OrderManager
 from ..risk_management.risk_manager import RiskManager
+from ...portfolio.portfolio_service import portfolio_aggregator
 
 
 class TradingState(Enum):
@@ -367,6 +368,23 @@ class TradingEngine:
         
         except Exception as e:
             self.logger.error(f"Erreur vérification actions positions: {e}")
+    
+    async def get_portfolio_snapshot(self) -> Dict[str, Any]:
+        """Retourne un snapshot agrégé du portefeuille (balances + positions)."""
+        try:
+            await portfolio_aggregator.refresh()
+            consolidated = portfolio_aggregator.consolidate_positions()
+            balances = {
+                ex: [b.__dict__ for b in bl]
+                for ex, bl in portfolio_aggregator.get_balances().items()
+            }
+            return {
+                'positions': consolidated,
+                'balances': balances,
+            }
+        except Exception as e:
+            self.logger.error(f"Erreur snapshot portefeuille: {e}")
+            return {'positions': {}, 'balances': {}}
     
     def get_status(self) -> Dict:
         """Retourne le statut du moteur"""
