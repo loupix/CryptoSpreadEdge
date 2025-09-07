@@ -6,6 +6,8 @@ from datetime import datetime
 from ..connectors.common.market_data_types import Balance, Position
 from ..connectors.connector_factory import connector_factory
 from ..utils.symbols.normalizer import normalize_symbol
+from ..ai.feature_engineering.loaders import load_price_history
+import numpy as np
 
 
 class PortfolioAggregator:
@@ -108,6 +110,47 @@ class PortfolioAggregator:
             price = float(price_lookup.get(symbol, 0.0))
             total_equity += data['quantity'] * price
         return total_equity
+
+    async def compute_price_covariance(self, symbols: List[str], points: int = 300) -> Dict[Tuple[str, str], float]:
+        """
+        Calcule la covariance des rendements log pour une liste de symboles.
+        Retourne un dict à clés (sym_i, sym_j) -> cov_ij.
+        """
+        if not symbols:
+            return {}
+        series: Dict[str, List[float]] = {}
+        # Charger historique et calculer rendements log
+        for sym in symbols:
+            try:
+                hist = await load_price_history(sym, points=points)
+                prices = [float(p.get('close', 0.0)) for p in hist if 'close' in p]
+                if len(prices) < 2:
+                    continue
+                prices_arr = np.array(prices, dtype=float)
+                rets = np.diff(np.log(prices_arr))
+                if rets.size > 1:
+                    series[sym] = rets.tolist()
+            except Exception:
+                continue
+        if not series:
+            return {}
+        # Aligner longueurs en tronquant au min
+        min_len = min(len(v) for v in series.values())
+        mat = []
+        kept_symbols: List[str] = []
+        for sym in symbols:
+            if sym in series and len(series[sym]) >= min_len and min_len > 1:
+                mat.append(series[sym][-min_len:])
+                kept_symbols.append(sym)
+        if not mat or len(kept_symbols) < 1:
+            return {}
+        X = np.array(mat, dtype=float)
+        cov = np.cov(X)
+        cov_map: Dict[Tuple[str, str], float] = {}
+        for i, si in enumerate(kept_symbols):
+            for j, sj in enumerate(kept_symbols):
+                cov_map[(si, sj)] = float(cov[i, j])
+        return cov_map
 
 
 # Instance simple réutilisable

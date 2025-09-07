@@ -70,6 +70,18 @@ async def cmd_rebalance(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_cov(args: argparse.Namespace) -> int:
+    logging.getLogger().setLevel(getattr(logging, args.log_level))
+    symbols = args.symbols
+    cov = await portfolio_aggregator.compute_price_covariance(symbols, points=args.points)
+    # sérialiser en dict de dict
+    out = {}
+    for (i, j), v in cov.items():
+        out.setdefault(i, {})[j] = v
+    print(json.dumps({"covariance": out}, indent=2))
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="CLI Portefeuille CryptoSpreadEdge")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -90,6 +102,11 @@ def main() -> None:
     p_reb.add_argument("--iterations", type=int, default=200)
     p_reb.add_argument("--lr", type=float, default=0.1)
     p_reb.set_defaults(func=lambda a: asyncio.run(cmd_rebalance(a)))
+
+    p_cov = sub.add_parser("cov", parents=[common], help="Exporter covariance des rendements log")
+    p_cov.add_argument('--symbols', nargs='+', required=True)
+    p_cov.add_argument('--points', type=int, default=300)
+    p_cov.set_defaults(func=lambda a: asyncio.run(cmd_cov(a)))
 
     args = parser.parse_args()
     exit_code = args.func(args)

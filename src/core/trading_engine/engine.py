@@ -48,6 +48,7 @@ class TradingConfig:
     rebalance_dry_run: bool = False
     rebalance_max_orders_per_cycle: int = 10
     rebalance_per_exchange_cap_value: float = 0.0  # 0 = désactivé
+    rebalance_use_real_covariance: bool = False
 
 
 class TradingEngine:
@@ -109,6 +110,8 @@ class TradingEngine:
                 self.config.rebalance_max_orders_per_cycle = int(os.environ.get('CSE_REBALANCE_MAX_ORDERS', self.config.rebalance_max_orders_per_cycle))
             if 'CSE_REBALANCE_PER_EXCHANGE_CAP' in os.environ:
                 self.config.rebalance_per_exchange_cap_value = float(os.environ.get('CSE_REBALANCE_PER_EXCHANGE_CAP', self.config.rebalance_per_exchange_cap_value))
+            if 'CSE_REBALANCE_USE_REAL_COV' in os.environ:
+                self.config.rebalance_use_real_covariance = os.environ.get('CSE_REBALANCE_USE_REAL_COV', '0') not in ['0','false','False']
         except Exception as _:
             # Ne pas bloquer le démarrage si parsing env échoue
             pass
@@ -452,13 +455,19 @@ class TradingEngine:
                     await asyncio.sleep(self.config.rebalance_interval_seconds)
                     continue
 
-                # Construire mu/cov naïfs (si aucune source fournie)
+                # Construire mu/cov (réel ou naïf)
                 symbols = list(consolidated.keys())
                 expected_returns = {s: 0.0 for s in symbols}
-                cov_map = {}
-                for si in symbols:
-                    for sj in symbols:
-                        cov_map[(si, sj)] = 0.0 if si != sj else 1.0
+                if self.config.rebalance_use_real_covariance:
+                    try:
+                        cov_map = await portfolio_aggregator.compute_price_covariance(symbols, points=300)
+                    except Exception:
+                        cov_map = {}
+                else:
+                    cov_map = {}
+                    for si in symbols:
+                        for sj in symbols:
+                            cov_map[(si, sj)] = 0.0 if si != sj else 1.0
 
                 # Calculer poids cibles
                 if self.config.rebalance_method == "mv":
