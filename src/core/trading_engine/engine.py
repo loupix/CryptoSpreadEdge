@@ -69,6 +69,21 @@ class TradingEngine:
 
         # Overrides via variables d'environnement (CSE_REBALANCE_*)
         try:
+            # Charger un fichier .env si spécifié
+            env_file = os.environ.get('CSE_REBALANCE_ENV_FILE')
+            if env_file and os.path.isfile(env_file):
+                try:
+                    with open(env_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line or line.startswith('#'):
+                                continue
+                            if '=' in line:
+                                k, v = line.split('=', 1)
+                                os.environ[k.strip()] = v.strip()
+                except Exception:
+                    pass
+
             if 'CSE_REBALANCE_ENABLED' in os.environ:
                 self.config.rebalance_enabled = os.environ.get('CSE_REBALANCE_ENABLED', '1') not in ['0', 'false', 'False']
             if 'CSE_REBALANCE_INTERVAL' in os.environ:

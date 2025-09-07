@@ -534,11 +534,52 @@ async def main():
                        help='Symboles à trader (défaut: BTC ETH BNB)')
     parser.add_argument('--update-interval', type=int, default=60,
                        help='Intervalle de mise à jour en secondes (défaut: 60)')
+
+    # Overrides rebalance via CLI -> variables d'environnement
+    parser.add_argument('--rebalance-enabled', type=str, choices=['0','1','true','false','True','False'], default=None,
+                       help='Activer le rebalance automatique (1/0)')
+    parser.add_argument('--rebalance-interval', type=int, default=None,
+                       help='Intervalle de rebalance en secondes')
+    parser.add_argument('--rebalance-method', type=str, choices=['rp','mv'], default=None,
+                       help='Méthode de rebalance: rp ou mv')
+    parser.add_argument('--rebalance-min-weight', type=float, default=None,
+                       help='Poids minimum par actif')
+    parser.add_argument('--rebalance-max-weight', type=float, default=None,
+                       help='Poids maximum par actif')
+    parser.add_argument('--rebalance-leverage', type=float, default=None,
+                       help='Levier cible (somme des poids)')
+    parser.add_argument('--rebalance-risk-aversion', type=float, default=None,
+                       help='Averseion au risque (mean-variance)')
+    parser.add_argument('--rebalance-trade-threshold', type=float, default=None,
+                       help='Valeur minimale d\'ordre pour exécuter la correction')
+    parser.add_argument('--rebalance-env-file', type=str, default=None,
+                       help='Fichier .env à charger (CSE_REBALANCE_*)')
     
     args = parser.parse_args()
     
     # Configurer le logging
     logging.getLogger().setLevel(getattr(logging, args.log_level))
+
+    # Appliquer les overrides via variables d'environnement
+    import os
+    if args.rebalance_enabled is not None:
+        os.environ['CSE_REBALANCE_ENABLED'] = args.rebalance_enabled
+    if args.rebalance_interval is not None:
+        os.environ['CSE_REBALANCE_INTERVAL'] = str(args.rebalance_interval)
+    if args.rebalance_method is not None:
+        os.environ['CSE_REBALANCE_METHOD'] = args.rebalance_method
+    if args.rebalance_min_weight is not None:
+        os.environ['CSE_REBALANCE_MIN_WEIGHT'] = str(args.rebalance_min_weight)
+    if args.rebalance_max_weight is not None:
+        os.environ['CSE_REBALANCE_MAX_WEIGHT'] = str(args.rebalance_max_weight)
+    if args.rebalance_leverage is not None:
+        os.environ['CSE_REBALANCE_LEVERAGE'] = str(args.rebalance_leverage)
+    if args.rebalance_risk_aversion is not None:
+        os.environ['CSE_REBALANCE_RISK_AVERSION'] = str(args.rebalance_risk_aversion)
+    if args.rebalance_trade_threshold is not None:
+        os.environ['CSE_REBALANCE_TRADE_THRESHOLD'] = str(args.rebalance_trade_threshold)
+    if args.rebalance_env_file is not None:
+        os.environ['CSE_REBALANCE_ENV_FILE'] = args.rebalance_env_file
     
     # Créer le système
     system = TradingSystem()
