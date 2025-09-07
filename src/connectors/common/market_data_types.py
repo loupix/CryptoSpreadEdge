@@ -95,8 +95,8 @@ class Order:
     """Ordre de trading"""
     symbol: str
     side: OrderSide
-    order_type: Optional[OrderType] = None
     quantity: float
+    order_type: Optional[OrderType] = None
     price: Optional[float] = None
     stop_price: Optional[float] = None
     id: str = ""
