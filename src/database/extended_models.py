@@ -6,7 +6,7 @@ from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Boolean, Text, 
     ForeignKey, Enum as SQLEnum, Index, UniqueConstraint, CheckConstraint
 )
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY, INET
 from datetime import datetime
@@ -48,6 +48,54 @@ class UserStatus(Enum):
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
     PENDING_VERIFICATION = "pending_verification"
+
+
+class OrderSide(Enum):
+    """Côté de l'ordre"""
+    BUY = "buy"
+    SELL = "sell"
+
+
+class OrderType(Enum):
+    """Type d'ordre"""
+    MARKET = "market"
+    LIMIT = "limit"
+    STOP = "stop"
+    STOP_LIMIT = "stop_limit"
+    OCO = "oco"
+    ICEBERG = "iceberg"
+    TWAP = "twap"
+
+
+class OrderStatus(Enum):
+    """Statut de l'ordre"""
+    PENDING = "pending"
+    OPEN = "open"
+    FILLED = "filled"
+    PARTIALLY_FILLED = "partially_filled"
+    CANCELED = "canceled"
+    REJECTED = "rejected"
+
+
+class PositionType(Enum):
+    """Type de position"""
+    LONG = "long"
+    SHORT = "short"
+
+
+class PositionStatus(Enum):
+    """Statut de la position"""
+    OPEN = "open"
+    CLOSED = "closed"
+    PARTIALLY_CLOSED = "partially_closed"
+
+
+class StrategyStatus(Enum):
+    """Statut de la stratégie"""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PAUSED = "paused"
+    ERROR = "error"
 
 
 class AlertType(Enum):
@@ -109,7 +157,7 @@ class Exchange(Base):
     kyc_required = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     api_keys = relationship("ExchangeAPIKey", back_populates="exchange")
@@ -151,7 +199,7 @@ class User(Base):
     two_factor_secret = Column(String(32), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     api_keys = relationship("ExchangeAPIKey", back_populates="user")
@@ -188,7 +236,7 @@ class ExchangeAPIKey(Base):
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     user = relationship("User", back_populates="api_keys")
@@ -227,7 +275,7 @@ class TradingSession(Base):
     last_activity = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     user = relationship("User", back_populates="trading_sessions")
@@ -263,7 +311,7 @@ class Alert(Base):
     cooldown_seconds = Column(Integer, default=300)  # Cooldown entre déclenchements
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     user = relationship("User", back_populates="alerts")
@@ -295,7 +343,7 @@ class Notification(Base):
     max_retries = Column(Integer, default=3)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     user = relationship("User", back_populates="notifications")
@@ -327,7 +375,7 @@ class MarketData(Base):
     trade_count = Column(Integer, nullable=True)
     timestamp = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     exchange = relationship("Exchange")
@@ -354,7 +402,7 @@ class TechnicalIndicator(Base):
     parameters = Column(JSONB, nullable=True)  # Paramètres de l'indicateur
     timestamp = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Indexes
     __table_args__ = (
@@ -382,7 +430,7 @@ class RiskEvent(Base):
     resolved_at = Column(DateTime, nullable=True)
     resolved_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     user = relationship("User", foreign_keys=[user_id])
@@ -411,7 +459,7 @@ class SystemMetric(Base):
     labels = Column(JSONB, nullable=True)  # Labels Prometheus-style
     timestamp = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Indexes
     __table_args__ = (
@@ -445,7 +493,7 @@ class Order(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     filled_at = Column(DateTime, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations étendues
     exchange_rel = relationship("Exchange", back_populates="orders")
@@ -481,7 +529,7 @@ class Position(Base):
     opened_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     closed_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations étendues
     strategy = relationship("Strategy", back_populates="positions")
@@ -522,7 +570,7 @@ class Trade(Base):
     signal_strength = Column(Float, nullable=True)
     signal_confidence = Column(Float, nullable=True)
     exit_reason = Column(String(100), nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations étendues
     order = relationship("Order", back_populates="trades")
@@ -555,7 +603,7 @@ class Strategy(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     activated_at = Column(DateTime, nullable=True)
     deactivated_at = Column(DateTime, nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations étendues
     positions = relationship("Position", back_populates="strategy")
@@ -590,7 +638,7 @@ class Portfolio(Base):
     max_drawdown = Column(Float, default=0.0)
     sharpe_ratio = Column(Float, default=0.0)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations étendues
     user = relationship("User", back_populates="portfolio_snapshots")

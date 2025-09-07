@@ -20,7 +20,8 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-from .extended_models import User, ExchangeAPIKey, AuditLog
+from .extended_models import User, ExchangeAPIKey
+from .models import AuditLog
 from .extended_repositories import UserRepository, ExchangeAPIKeyRepository
 
 logger = logging.getLogger(__name__)

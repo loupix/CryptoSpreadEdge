@@ -6,7 +6,7 @@ from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Boolean, Text, 
     ForeignKey, Enum as SQLEnum, Index, UniqueConstraint
 )
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from datetime import datetime
@@ -83,7 +83,7 @@ class Order(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     filled_at = Column(DateTime, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     trades = relationship("Trade", back_populates="order")
@@ -114,7 +114,7 @@ class Position(Base):
     opened_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     closed_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     strategy = relationship("Strategy", back_populates="positions")
@@ -149,7 +149,7 @@ class Trade(Base):
     signal_strength = Column(Float, nullable=True)
     signal_confidence = Column(Float, nullable=True)
     exit_reason = Column(String(100), nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     order = relationship("Order", back_populates="trades")
@@ -178,7 +178,7 @@ class Strategy(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     activated_at = Column(DateTime, nullable=True)
     deactivated_at = Column(DateTime, nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Relations
     positions = relationship("Position", back_populates="strategy")
@@ -210,7 +210,7 @@ class Portfolio(Base):
     max_drawdown = Column(Float, default=0.0)
     sharpe_ratio = Column(Float, default=0.0)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Indexes
     __table_args__ = (
@@ -232,7 +232,7 @@ class AuditLog(Base):
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
     
     # Indexes
     __table_args__ = (

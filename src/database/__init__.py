@@ -4,6 +4,7 @@ Module de gestion de base de données
 
 from .database import DatabaseManager, get_database_manager
 from .models import *
+from .repositories import OrderRepository, PositionRepository, TradeRepository, StrategyRepository, PortfolioRepository
 
 __all__ = [
     'DatabaseManager',
@@ -13,5 +14,10 @@ __all__ = [
     'Trade',
     'Strategy',
     'Portfolio',
-    'AuditLog'
+    'AuditLog',
+    'OrderRepository',
+    'PositionRepository',
+    'TradeRepository',
+    'StrategyRepository',
+    'PortfolioRepository'
 ]
