@@ -12,10 +12,12 @@ services:
       - REDIS_URL=redis://redis:6379
       - INFLUXDB_URL=http://influxdb:8086
       - KAFKA_BROKERS=kafka:9092
+      - POSTGRES_URL=postgresql://trading_user:secure_password@postgres:5432/cryptospreadedge
     depends_on:
       - redis
       - influxdb
       - kafka
+      - postgres
     volumes:
       - ../../data:/app/data
       - ../../logs:/app/logs
@@ -63,6 +65,24 @@ services:
       - DOCKER_INFLUXDB_INIT_BUCKET=trading_data
     volumes:
       - influxdb_data:/var/lib/influxdb2
+    networks:
+      - cryptospreadedge-network
+
+  # PostgreSQL pour les données relationnelles
+  postgres:
+    image: postgres:15-alpine
+    container_name: cryptospreadedge-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=cryptospreadedge
+      - POSTGRES_USER=trading_user
+      - POSTGRES_PASSWORD=secure_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - cryptospreadedge-network
 
@@ -181,6 +201,7 @@ services:
 volumes:
   redis_data:
   influxdb_data:
+  postgres_data:
   kafka_data:
   prometheus_data:
   grafana_data:

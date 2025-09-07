@@ -267,6 +267,41 @@ services:
       - backend
       - monitoring
 
+  # PostgreSQL pour les données relationnelles
+  postgres:
+    image: postgres:15-alpine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+        limits:
+          cpus: '2.0'
+          memory: 4G
+      placement:
+        constraints:
+          - node.role == manager
+    environment:
+      - POSTGRES_DB=cryptospreadedge
+      - POSTGRES_USER=trading_user
+      - POSTGRES_PASSWORD=secure_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading_user -d cryptospreadedge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    networks:
+      - backend
+
   # Redis avec persistence optimisée
   redis:
     image: redis:7-alpine
@@ -516,6 +551,7 @@ services:
 
 volumes:
   redis_data: {}
+  postgres_data: {}
   influxdb_data: {}
   kafka_data: {}
   prometheus_data: {}
