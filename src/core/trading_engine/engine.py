@@ -4,6 +4,8 @@ Moteur de trading haute fréquence principal
 
 import asyncio
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -49,6 +51,19 @@ class TradingConfig:
     rebalance_max_orders_per_cycle: int = 10
     rebalance_per_exchange_cap_value: float = 0.0  # 0 = désactivé
     rebalance_use_real_covariance: bool = False
+    # Coûts et contraintes d'exécution
+    rebalance_fee_rate: float = 0.001  # 10 bps
+    rebalance_slippage_bps: float = 10.0  # 10 bps
+    rebalance_min_order_notional: float = 10.0
+    # Vol target et backoff
+    rebalance_vol_target_enabled: bool = False
+    rebalance_vol_target: float = 0.0  # p.ex. 0.01 = 1%/période
+    rebalance_backoff_enabled: bool = False
+    rebalance_backoff_multiplier: float = 2.0
+    rebalance_backoff_max_interval: int = 3600
+    # Export métriques
+    rebalance_prometheus_enabled: bool = False
+    rebalance_prometheus_port: int = 8001
 
 
 class TradingEngine:
@@ -112,6 +127,24 @@ class TradingEngine:
                 self.config.rebalance_per_exchange_cap_value = float(os.environ.get('CSE_REBALANCE_PER_EXCHANGE_CAP', self.config.rebalance_per_exchange_cap_value))
             if 'CSE_REBALANCE_USE_REAL_COV' in os.environ:
                 self.config.rebalance_use_real_covariance = os.environ.get('CSE_REBALANCE_USE_REAL_COV', '0') not in ['0','false','False']
+            if 'CSE_REBALANCE_FEE_RATE' in os.environ:
+                self.config.rebalance_fee_rate = float(os.environ.get('CSE_REBALANCE_FEE_RATE', self.config.rebalance_fee_rate))
+            if 'CSE_REBALANCE_SLIPPAGE_BPS' in os.environ:
+                self.config.rebalance_slippage_bps = float(os.environ.get('CSE_REBALANCE_SLIPPAGE_BPS', self.config.rebalance_slippage_bps))
+            if 'CSE_REBALANCE_MIN_NOTIONAL' in os.environ:
+                self.config.rebalance_min_order_notional = float(os.environ.get('CSE_REBALANCE_MIN_NOTIONAL', self.config.rebalance_min_order_notional))
+            if 'CSE_REBALANCE_VOL_TARGET_ENABLED' in os.environ:
+                self.config.rebalance_vol_target_enabled = os.environ.get('CSE_REBALANCE_VOL_TARGET_ENABLED', '0') not in ['0','false','False']
+            if 'CSE_REBALANCE_VOL_TARGET' in os.environ:
+                self.config.rebalance_vol_target = float(os.environ.get('CSE_REBALANCE_VOL_TARGET', self.config.rebalance_vol_target))
+            if 'CSE_REBALANCE_BACKOFF_ENABLED' in os.environ:
+                self.config.rebalance_backoff_enabled = os.environ.get('CSE_REBALANCE_BACKOFF_ENABLED', '0') not in ['0','false','False']
+            if 'CSE_REBALANCE_BACKOFF_MULT' in os.environ:
+                self.config.rebalance_backoff_multiplier = float(os.environ.get('CSE_REBALANCE_BACKOFF_MULT', self.config.rebalance_backoff_multiplier))
+            if 'CSE_REBALANCE_BACKOFF_MAX' in os.environ:
+                self.config.rebalance_backoff_max_interval = int(os.environ.get('CSE_REBALANCE_BACKOFF_MAX', self.config.rebalance_backoff_max_interval))
+            if 'CSE_REBALANCE_PROMETHEUS' in os.environ:
+                self.config.rebalance_prometheus_enabled = os.environ.get('CSE_REBALANCE_PROMETHEUS', '0') not in ['0','false','False']
         except Exception as _:
             # Ne pas bloquer le démarrage si parsing env échoue
             pass
@@ -120,6 +153,15 @@ class TradingEngine:
         self.logger = logging.getLogger(__name__)
         self._running = False
         self._tasks: List[asyncio.Task] = []
+        # Compteurs de rebalance (cycle courant)
+        self._rebalance_stats = {
+            'orders_placed': 0,
+            'orders_skipped_threshold': 0,
+            'orders_skipped_min_notional': 0,
+            'orders_skipped_cap': 0,
+            'estimated_costs_total': 0.0,
+        }
+        self._rebalance_current_interval = self.config.rebalance_interval_seconds
         
     async def start(self) -> None:
         """Démarre le moteur de trading"""
@@ -146,6 +188,12 @@ class TradingEngine:
             
             self.state = TradingState.RUNNING
             self.logger.info("Moteur de trading démarré avec succès")
+            # Démarrer serveur de métriques si activé
+            if self.config.rebalance_prometheus_enabled:
+                try:
+                    self._start_metrics_server()
+                except Exception:
+                    self.logger.warning("Impossible de démarrer le serveur de métriques")
             
         except Exception as e:
             self.state = TradingState.ERROR
@@ -175,6 +223,14 @@ class TradingEngine:
         
         self.state = TradingState.STOPPED
         self.logger.info("Moteur de trading arrêté")
+        # Arrêter serveur métriques si démarré
+        if hasattr(self, '_metrics_server') and self._metrics_server is not None:
+            try:
+                self._metrics_server.shutdown()
+                self._metrics_server.server_close()
+            except Exception:
+                pass
+            self._metrics_server = None
     
     async def pause(self) -> None:
         """Met en pause le moteur de trading"""
@@ -469,7 +525,16 @@ class TradingEngine:
                         for sj in symbols:
                             cov_map[(si, sj)] = 0.0 if si != sj else 1.0
 
-                # Calculer poids cibles
+                # Option: prioriser par volatilité (si cov dispo)
+                symbol_order = symbols
+                if cov_map:
+                    try:
+                        vol = {s: (cov_map.get((s, s), 0.0)) ** 0.5 for s in symbols}
+                        symbol_order = sorted(symbols, key=lambda s: vol.get(s, 0.0), reverse=True)
+                    except Exception:
+                        symbol_order = symbols
+
+                # Calculer poids cibles (avec option vol target)
                 if self.config.rebalance_method == "mv":
                     target_weights = optimizer.mean_variance_weights(
                         expected_returns=expected_returns,
@@ -486,6 +551,31 @@ class TradingEngine:
                         max_weight=self.config.rebalance_max_weight,
                         target_leverage=self.config.rebalance_target_leverage,
                     )
+
+                # Ajuster leverage pour viser une volatilité cible si activé et cov disponible
+                if self.config.rebalance_vol_target_enabled and cov_map:
+                    try:
+                        syms = list(target_weights.keys())
+                        if syms:
+                            # Construire vecteur des poids et matrice cov
+                            import numpy as _np
+                            w = _np.array([target_weights[s] for s in syms], dtype=float)
+                            cov_mat = _np.array([[cov_map.get((i, j), cov_map.get((j, i), 0.0)) for j in syms] for i in syms], dtype=float)
+                            port_var = float(w.T.dot(cov_mat).dot(w))
+                            port_vol = port_var ** 0.5 if port_var > 0 else 0.0
+                            if port_vol > 0 and self.config.rebalance_vol_target > 0:
+                                scale = self.config.rebalance_vol_target / port_vol
+                                # rescaler et recouper min/max
+                                w = w * scale
+                                # clip et renormaliser à leverage cible
+                                w = _np.clip(w, self.config.rebalance_min_weight, self.config.rebalance_max_weight)
+                                s = w.sum()
+                                if s > 0:
+                                    w = w * (self.config.rebalance_target_leverage / s)
+                                for i, s in enumerate(syms):
+                                    target_weights[s] = float(w[i])
+                    except Exception:
+                        pass
 
                 # Calculer valeur totale estimée et expositions actuelles
                 total_equity = 0.0
@@ -517,7 +607,17 @@ class TradingEngine:
                             share = (ex_qty / qty) * val
                         exposure_by_exchange[ex] = exposure_by_exchange.get(ex, 0.0) + max(share, 0.0)
 
-                for sym, tgt_w in target_weights.items():
+                # Réinitialiser stats cycle
+                self._rebalance_stats.update({
+                    'orders_placed': 0,
+                    'orders_skipped_threshold': 0,
+                    'orders_skipped_min_notional': 0,
+                    'orders_skipped_cap': 0,
+                    'estimated_costs_total': 0.0,
+                })
+
+                for sym in symbol_order:
+                    tgt_w = target_weights.get(sym, 0.0)
                     price = float(price_lookup.get(sym.upper(), 0.0))
                     if price <= 0:
                         continue
@@ -545,7 +645,26 @@ class TradingEngine:
                             current_exposure = exposure_by_exchange.get(target_exchange, 0.0)
                             projected = current_exposure + max(delta_value, 0.0)
                             if projected > self.config.rebalance_per_exchange_cap_value:
+                                self._rebalance_stats['orders_skipped_cap'] += 1
                                 continue
+
+                    # Vérifier la taille minimale (notional)
+                    notional = qty * price
+                    if notional < self.config.rebalance_min_order_notional:
+                        self._rebalance_stats['orders_skipped_min_notional'] += 1
+                        continue
+
+                    # Estimer coûts: fees + slippage
+                    slippage = abs(self.config.rebalance_slippage_bps) / 10000.0
+                    fee_rate = max(self.config.rebalance_fee_rate, 0.0)
+                    est_fees = fee_rate * notional
+                    est_slippage_cost = qty * (price * slippage)
+                    est_total_cost = est_fees + est_slippage_cost
+
+                    # Ne pas trader si l'écart cible ne couvre pas les coûts et le seuil
+                    if abs(delta_value) <= (self.config.rebalance_trade_threshold_value + est_total_cost):
+                        self._rebalance_stats['orders_skipped_threshold'] += 1
+                        continue
 
                     # Construire et placer l'ordre (simplifié: MARKET, côté selon signe)
                     try:
@@ -557,6 +676,7 @@ class TradingEngine:
                             quantity=qty,
                             timestamp=datetime.utcnow()
                         )
+                        self._rebalance_stats['estimated_costs_total'] += est_total_cost
                         if self.config.rebalance_dry_run:
                             self.logger.info(f"[DRY-RUN] Rebalance: {order.side.value} {qty:.6f} {sym} @~{price:.4f}")
                         else:
@@ -566,7 +686,36 @@ class TradingEngine:
                     except Exception as place_exc:
                         self.logger.warning(f"Échec placement ordre de rebalance {sym}: {place_exc}")
 
-                await asyncio.sleep(self.config.rebalance_interval_seconds)
+                # Log de synthèse du cycle
+                try:
+                    self.logger.info(
+                        f"Rebalance cycle: placed={orders_placed} "
+                        f"skipped_threshold={self._rebalance_stats['orders_skipped_threshold']} "
+                        f"skipped_min_notional={self._rebalance_stats['orders_skipped_min_notional']} "
+                        f"skipped_cap={self._rebalance_stats['orders_skipped_cap']} "
+                        f"est_costs={self._rebalance_stats['estimated_costs_total']:.2f}"
+                    )
+                except Exception:
+                    pass
+
+                # Backoff dynamique si beaucoup d'ordres ignorés
+                interval = self.config.rebalance_interval_seconds
+                if self.config.rebalance_backoff_enabled:
+                    skipped = (
+                        self._rebalance_stats['orders_skipped_threshold'] +
+                        self._rebalance_stats['orders_skipped_min_notional'] +
+                        self._rebalance_stats['orders_skipped_cap']
+                    )
+                    if skipped > 0 and orders_placed == 0:
+                        self._rebalance_current_interval = min(
+                            int(self._rebalance_current_interval * self.config.rebalance_backoff_multiplier),
+                            self.config.rebalance_backoff_max_interval
+                        )
+                    else:
+                        self._rebalance_current_interval = self.config.rebalance_interval_seconds
+                    interval = self._rebalance_current_interval
+
+                await asyncio.sleep(interval)
 
             except Exception as e:
                 self.logger.error(f"Erreur rebalance loop: {e}")
@@ -602,3 +751,63 @@ class TradingEngine:
             },
             "timestamp": datetime.utcnow().isoformat()
         }
+
+    # --------- Prometheus metrics ---------
+    def _build_metrics_text(self) -> str:
+        lines = [
+            "# HELP cryptospreadedge_rebalance_orders_placed Number of rebalance orders placed in last cycle",
+            "# TYPE cryptospreadedge_rebalance_orders_placed gauge",
+            f"cryptospreadedge_rebalance_orders_placed {self._rebalance_stats['orders_placed']}",
+            "# HELP cryptospreadedge_rebalance_orders_skipped_threshold Orders skipped due to threshold+costs",
+            "# TYPE cryptospreadedge_rebalance_orders_skipped_threshold gauge",
+            f"cryptospreadedge_rebalance_orders_skipped_threshold {self._rebalance_stats['orders_skipped_threshold']}",
+            "# HELP cryptospreadedge_rebalance_orders_skipped_min_notional Orders skipped due to min notional",
+            "# TYPE cryptospreadedge_rebalance_orders_skipped_min_notional gauge",
+            f"cryptospreadedge_rebalance_orders_skipped_min_notional {self._rebalance_stats['orders_skipped_min_notional']}",
+            "# HELP cryptospreadedge_rebalance_orders_skipped_cap Orders skipped due to per-exchange cap",
+            "# TYPE cryptospreadedge_rebalance_orders_skipped_cap gauge",
+            f"cryptospreadedge_rebalance_orders_skipped_cap {self._rebalance_stats['orders_skipped_cap']}",
+            "# HELP cryptospreadedge_rebalance_estimated_costs_total Estimated total costs of placed orders in last cycle",
+            "# TYPE cryptospreadedge_rebalance_estimated_costs_total gauge",
+            f"cryptospreadedge_rebalance_estimated_costs_total {self._rebalance_stats['estimated_costs_total']}",
+            "# HELP cryptospreadedge_rebalance_interval_seconds Current rebalance interval (with backoff)",
+            "# TYPE cryptospreadedge_rebalance_interval_seconds gauge",
+            f"cryptospreadedge_rebalance_interval_seconds {self._rebalance_current_interval}",
+        ]
+        return "\n".join(lines) + "\n"
+
+    def _start_metrics_server(self) -> None:
+        if hasattr(self, '_metrics_server') and self._metrics_server is not None:
+            return
+
+        engine_ref = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # type: ignore[override]
+                if self.path == "/metrics":
+                    body = engine_ref._build_metrics_text().encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; version=0.0.4")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+            def log_message(self, format, *args):
+                return
+
+        addr = ("0.0.0.0", int(self.config.rebalance_prometheus_port))
+        self._metrics_server = HTTPServer(addr, Handler)
+
+        def serve():
+            try:
+                self._metrics_server.serve_forever()
+            except Exception:
+                pass
+
+        t = threading.Thread(target=serve, daemon=True)
+        t.start()
+        self._metrics_thread = t
+        self.logger.info(f"Metrics server listening on :{self.config.rebalance_prometheus_port}")

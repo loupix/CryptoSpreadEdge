@@ -557,6 +557,9 @@ async def main():
     parser.add_argument('--rebalance-dry-run', type=str, choices=['0','1','true','false','True','False'], default=None, help='Ne pas exécuter les ordres, seulement logguer')
     parser.add_argument('--rebalance-max-orders', type=int, default=None, help='Nombre max d ordres par cycle')
     parser.add_argument('--rebalance-per-exchange-cap', type=float, default=None, help='Plafond de valeur par exchange')
+    parser.add_argument('--rebalance-fee-rate', type=float, default=None, help='Taux de fees estimé (ex: 0.001)')
+    parser.add_argument('--rebalance-slippage-bps', type=float, default=None, help='Slippage en bps (ex: 10 = 0.10%)')
+    parser.add_argument('--rebalance-min-notional', type=float, default=None, help='Taille minimale notionnelle par ordre')
     
     args = parser.parse_args()
     
@@ -589,6 +592,12 @@ async def main():
         os.environ['CSE_REBALANCE_MAX_ORDERS'] = str(args.rebalance_max_orders)
     if args.rebalance_per_exchange_cap is not None:
         os.environ['CSE_REBALANCE_PER_EXCHANGE_CAP'] = str(args.rebalance_per_exchange_cap)
+    if args.rebalance_fee_rate is not None:
+        os.environ['CSE_REBALANCE_FEE_RATE'] = str(args.rebalance_fee_rate)
+    if args.rebalance_slippage_bps is not None:
+        os.environ['CSE_REBALANCE_SLIPPAGE_BPS'] = str(args.rebalance_slippage_bps)
+    if args.rebalance_min_notional is not None:
+        os.environ['CSE_REBALANCE_MIN_NOTIONAL'] = str(args.rebalance_min_notional)
     
     # Créer le système
     system = TradingSystem()
