@@ -11,6 +11,7 @@ import json
 
 from ..connectors.common.market_data_types import MarketData, Ticker, OrderBook, Trade
 from ...config.arbitrage_config import DATA_SOURCES
+from ...config.api_keys_manager import api_keys_manager
 
 
 class AlternativeDataSources:
@@ -56,11 +57,14 @@ class AlternativeDataSources:
             for name, cfg in DATA_SOURCES.items():
                 if not cfg.enabled:
                     continue
-                if name in self.sources and cfg.api_key:
+                # Priorité: clé issue du gestionnaire chiffré > clé dans la config
+                creds = api_keys_manager.get_credentials_for_platform(name)
+                api_key_value = creds.get("api_key") or cfg.api_key
+                if name in self.sources and api_key_value:
                     # recréer l'instance avec api_key si le constructeur le supporte
                     cls = type(self.sources[name])
                     try:
-                        self.sources[name] = cls(api_key=cfg.api_key)
+                        self.sources[name] = cls(api_key=api_key_value)
                     except TypeError:
                         # si la source ne prend pas api_key, ignorer
                         pass
