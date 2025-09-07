@@ -99,6 +99,7 @@ class Order:
     quantity: float
     price: Optional[float] = None
     stop_price: Optional[float] = None
+    id: str = ""
     order_id: str = ""
     status: OrderStatus = OrderStatus.PENDING
     filled_quantity: float = 0.0
@@ -107,6 +108,9 @@ class Order:
     source: str = ""
     
     def __post_init__(self):
+        # Support alias: certains tests utilisent `id` au lieu de `order_id`
+        if self.order_id == "" and self.id:
+            self.order_id = self.id
         if self.timestamp is None:
             self.timestamp = datetime.utcnow()
 
