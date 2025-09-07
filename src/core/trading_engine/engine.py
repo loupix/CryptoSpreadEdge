@@ -3,6 +3,7 @@ Moteur de trading haute fréquence principal
 """
 
 import asyncio
+import os
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -65,6 +66,28 @@ class TradingEngine:
         self.order_manager = order_manager
         self.risk_manager = risk_manager
         self.config = config
+
+        # Overrides via variables d'environnement (CSE_REBALANCE_*)
+        try:
+            if 'CSE_REBALANCE_ENABLED' in os.environ:
+                self.config.rebalance_enabled = os.environ.get('CSE_REBALANCE_ENABLED', '1') not in ['0', 'false', 'False']
+            if 'CSE_REBALANCE_INTERVAL' in os.environ:
+                self.config.rebalance_interval_seconds = int(os.environ.get('CSE_REBALANCE_INTERVAL', self.config.rebalance_interval_seconds))
+            if 'CSE_REBALANCE_METHOD' in os.environ:
+                self.config.rebalance_method = str(os.environ.get('CSE_REBALANCE_METHOD', self.config.rebalance_method))
+            if 'CSE_REBALANCE_MIN_WEIGHT' in os.environ:
+                self.config.rebalance_min_weight = float(os.environ.get('CSE_REBALANCE_MIN_WEIGHT', self.config.rebalance_min_weight))
+            if 'CSE_REBALANCE_MAX_WEIGHT' in os.environ:
+                self.config.rebalance_max_weight = float(os.environ.get('CSE_REBALANCE_MAX_WEIGHT', self.config.rebalance_max_weight))
+            if 'CSE_REBALANCE_LEVERAGE' in os.environ:
+                self.config.rebalance_target_leverage = float(os.environ.get('CSE_REBALANCE_LEVERAGE', self.config.rebalance_target_leverage))
+            if 'CSE_REBALANCE_RISK_AVERSION' in os.environ:
+                self.config.rebalance_risk_aversion = float(os.environ.get('CSE_REBALANCE_RISK_AVERSION', self.config.rebalance_risk_aversion))
+            if 'CSE_REBALANCE_TRADE_THRESHOLD' in os.environ:
+                self.config.rebalance_trade_threshold_value = float(os.environ.get('CSE_REBALANCE_TRADE_THRESHOLD', self.config.rebalance_trade_threshold_value))
+        except Exception as _:
+            # Ne pas bloquer le démarrage si parsing env échoue
+            pass
         
         self.state = TradingState.STOPPED
         self.logger = logging.getLogger(__name__)
