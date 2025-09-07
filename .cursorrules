@@ -18,3 +18,9 @@ Adapte ton langage pour que le style soit plus humain, moins formaté, et ne res
 # Règles terminal
 
 - Interdire l'utilisation des opérateurs de pipe (|) et des chaînages conditionnels (&&) dans les commandes du terminal. Exécuter les commandes séparément.
+
+# Règles Git
+
+- Les messages de commit doivent être rédigés en français.
+- Conserver le style Conventional Commits si possible (feat, fix, docs, refactor, chore...) mais avec des descriptions et scopes en français.
+- Préférer des messages clairs et concis, orientés impact (qu'est-ce qui change et pourquoi).

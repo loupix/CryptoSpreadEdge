@@ -1,0 +1,349 @@
+version: '3.8'
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+x-healthcheck: &basic-healthcheck
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 30s
+
+networks:
+  frontend:
+    driver: overlay
+    attachable: true
+  backend:
+    driver: overlay
+    attachable: true
+
+secrets:
+  api_keys_encrypted:
+    external: true
+  arbitrage_env:
+    external: true
+
+configs:
+  nginx_conf:
+    external: true
+  prometheus_conf:
+    external: true
+
+services:
+  # Application principale (workers)
+  cryptospreadedge:
+    image: cryptospreadedge:latest
+    deploy:
+      replicas: 3
+      mode: replicated
+      endpoint_mode: vip
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.2
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        monitor: 60s
+        order: stop-first
+      resources:
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+        limits:
+          cpus: '2.5'
+          memory: 6G
+      placement:
+        constraints:
+          - node.role == worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - INFLUXDB_URL=http://influxdb:8086
+      - KAFKA_BROKERS=kafka:9092
+    secrets:
+      - source: api_keys_encrypted
+        target: /run/secrets/api_keys.encrypted
+      - source: arbitrage_env
+        target: /run/secrets/arbitrage.env
+    configs:
+      - source: prometheus_conf
+        target: /etc/prometheus/prometheus.yml
+        mode: 0444
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys; sys.exit(0)"]
+      <<: *basic-healthcheck
+    volumes:
+      - type: bind
+        source: /var/lib/cryptospreadedge/data
+        target: /app/data
+      - type: bind
+        source: /var/lib/cryptospreadedge/logs
+        target: /app/logs
+    logging: *default-logging
+    networks:
+      - backend
+
+  # Service dédié pour arbitrage intensif (scalable séparément)
+  arbitrage-worker:
+    image: cryptospreadedge:latest
+    command: ["python", "-m", "src.scripts.arbitrage.start_arbitrage"]
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+        limits:
+          cpus: '1.5'
+          memory: 3G
+      placement:
+        constraints:
+          - node.role == worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - INFLUXDB_URL=http://influxdb:8086
+      - KAFKA_BROKERS=kafka:9092
+    secrets:
+      - source: api_keys_encrypted
+        target: /run/secrets/api_keys.encrypted
+      - source: arbitrage_env
+        target: /run/secrets/arbitrage.env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys; sys.exit(0)"]
+      <<: *basic-healthcheck
+    logging: *default-logging
+    networks:
+      - backend
+
+  # API Gateway / Nginx
+  nginx:
+    image: nginx:alpine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+        limits:
+          cpus: '0.5'
+          memory: 256M
+      placement:
+        constraints:
+          - node.role == manager
+    ports:
+      - "80:80"
+      - "443:443"
+    configs:
+      - source: nginx_conf
+        target: /etc/nginx/nginx.conf
+        mode: 0444
+    depends_on:
+      - cryptospreadedge
+    logging: *default-logging
+    networks:
+      - frontend
+      - backend
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+        limits:
+          cpus: '0.5'
+          memory: 1G
+      placement:
+        constraints:
+          - node.role == manager
+    volumes:
+      - type: volume
+        source: redis_data
+        target: /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      <<: *basic-healthcheck
+    logging: *default-logging
+    networks:
+      - backend
+
+  # InfluxDB
+  influxdb:
+    image: influxdb:2.7-alpine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+        limits:
+          cpus: '1.0'
+          memory: 2G
+      placement:
+        constraints:
+          - node.role == manager
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password123
+      - DOCKER_INFLUXDB_INIT_ORG=cryptospreadedge
+      - DOCKER_INFLUXDB_INIT_BUCKET=trading_data
+    volumes:
+      - type: volume
+        source: influxdb_data
+        target: /var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8086/health"]
+      <<: *basic-healthcheck
+    logging: *default-logging
+    networks:
+      - backend
+
+  # Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+        limits:
+          cpus: '0.5'
+          memory: 1G
+      placement:
+        constraints:
+          - node.role == manager
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    logging: *default-logging
+    networks:
+      - backend
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+        limits:
+          cpus: '1.0'
+          memory: 2G
+      placement:
+        constraints:
+          - node.role == manager
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    volumes:
+      - type: volume
+        source: kafka_data
+        target: /var/lib/kafka/data
+    logging: *default-logging
+    networks:
+      - backend
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+        limits:
+          cpus: '0.5'
+          memory: 1G
+      placement:
+        constraints:
+          - node.role == manager
+    volumes:
+      - type: volume
+        source: prometheus_data
+        target: /prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    configs:
+      - source: prometheus_conf
+        target: /etc/prometheus/prometheus.yml
+        mode: 0444
+    logging: *default-logging
+    networks:
+      - backend
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+        limits:
+          cpus: '0.5'
+          memory: 1G
+      placement:
+        constraints:
+          - node.role == manager
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - type: volume
+        source: grafana_data
+        target: /var/lib/grafana
+    logging: *default-logging
+    networks:
+      - frontend
+      - backend
+
+volumes:
+  redis_data: {}
+  influxdb_data: {}
+  kafka_data: {}
+  prometheus_data: {}
+  grafana_data: {}
+
