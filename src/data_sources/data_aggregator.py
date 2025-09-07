@@ -13,6 +13,7 @@ import statistics
 from ..connectors.common.market_data_types import MarketData, Ticker, OrderBook, Trade
 from ..connectors.connector_factory import connector_factory
 from .alternative_sources import alternative_sources
+from ...config.arbitrage_config import DATA_SOURCES
 
 
 @dataclass
@@ -70,8 +71,10 @@ class DataAggregator:
                     task = self._get_exchange_data(connector, symbols, exchange_id)
                     tasks.append(task)
             
-            # Données des sources alternatives
-            for source_name in ["coinmarketcap", "coingecko", "cryptocompare", "messari"]:
+            # Données des sources alternatives (pilotées par la config)
+            for source_name, cfg in DATA_SOURCES.items():
+                if not cfg.enabled:
+                    continue
                 task = self._get_alternative_data(source_name, symbols)
                 tasks.append(task)
             
@@ -270,8 +273,10 @@ class DataAggregator:
                     except Exception as e:
                         self.logger.debug(f"Erreur prix {exchange_id} {symbol}: {e}")
             
-            # Prix des sources alternatives
-            for source_name in ["coinmarketcap", "coingecko", "cryptocompare"]:
+            # Prix des sources alternatives (pilotées par la config)
+            for source_name, cfg in DATA_SOURCES.items():
+                if not cfg.enabled:
+                    continue
                 try:
                     data = await self.alternative_sources.get_market_data([symbol], source_name)
                     if symbol in data and data[symbol].ticker:

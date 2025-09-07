@@ -13,6 +13,7 @@ import time
 from ..connectors.common.market_data_types import MarketData, Ticker
 from ..connectors.connector_factory import connector_factory
 from ..data_sources.data_aggregator import data_aggregator
+from ...config.arbitrage_config import DATA_SOURCES
 
 
 @dataclass
@@ -144,11 +145,7 @@ class PriceMonitor:
                 
                 # Récupérer les données des sources alternatives
                 for source_name in [
-                    "coinmarketcap", "coingecko", "cryptocompare", "messari",
-                    # Sources publiques par exchange
-                    "binance_public", "okx_public", "bybit_public", "kucoin_public",
-                    "kraken_public", "bitfinex_public", "bitstamp_public", "gateio_public",
-                    "huobi_public", "mexc_public"
+                    s for s, cfg in DATA_SOURCES.items() if cfg.enabled
                 ]:
                     try:
                         data = await data_aggregator.alternative_sources.get_market_data(symbols, source_name)

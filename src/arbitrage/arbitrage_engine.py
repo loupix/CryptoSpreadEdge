@@ -13,6 +13,7 @@ import time
 from ..connectors.common.market_data_types import MarketData, Order, OrderSide, OrderType
 from ..connectors.connector_factory import connector_factory
 from ..data_sources.data_aggregator import data_aggregator
+from ...config.arbitrage_config import DATA_SOURCES
 from ..monitoring.data_source_monitor import data_source_monitor
 
 
@@ -228,14 +229,8 @@ class ArbitrageEngine:
                     except Exception as e:
                         self.logger.debug(f"Erreur prix {exchange_id} {symbol}: {e}")
             
-            # Récupérer les prix des sources alternatives
-            for source_name in [
-                "coinmarketcap", "coingecko", "cryptocompare", "messari",
-                # Sources publiques par exchange
-                "binance_public", "okx_public", "bybit_public", "kucoin_public",
-                "kraken_public", "bitfinex_public", "bitstamp_public", "gateio_public",
-                "huobi_public", "mexc_public"
-            ]:
+            # Récupérer les prix des sources alternatives (pilotées par la config)
+            for source_name in [name for name, cfg in DATA_SOURCES.items() if cfg.enabled]:
                 try:
                     data = await data_aggregator.alternative_sources.get_market_data([symbol], source_name)
                     if symbol in data and data[symbol].ticker:

@@ -10,6 +10,7 @@ import aiohttp
 import json
 
 from ..connectors.common.market_data_types import MarketData, Ticker, OrderBook, Trade
+from ...config.arbitrage_config import DATA_SOURCES
 
 
 class AlternativeDataSources:
@@ -17,6 +18,7 @@ class AlternativeDataSources:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        # Déclaration par défaut des sources disponibles
         self.sources = {
             "coinmarketcap": CoinMarketCapSource(),
             "coingecko": CoinGeckoSource(),
@@ -40,6 +42,30 @@ class AlternativeDataSources:
             "huobi_public": HuobiPublicSource(),
             "mexc_public": MEXCPublicSource()
         }
+        # Appliquer la config: activer/désactiver et injecter les clés API si présentes
+        self._apply_config()
+
+    def _apply_config(self):
+        try:
+            # Désactiver les sources non activées
+            disabled = [name for name, cfg in DATA_SOURCES.items() if not cfg.enabled]
+            for name in disabled:
+                if name in self.sources:
+                    del self.sources[name]
+            # Injecter les clés API et paramètres si fournis
+            for name, cfg in DATA_SOURCES.items():
+                if not cfg.enabled:
+                    continue
+                if name in self.sources and cfg.api_key:
+                    # recréer l'instance avec api_key si le constructeur le supporte
+                    cls = type(self.sources[name])
+                    try:
+                        self.sources[name] = cls(api_key=cfg.api_key)
+                    except TypeError:
+                        # si la source ne prend pas api_key, ignorer
+                        pass
+        except Exception as e:
+            self.logger.error(f"Erreur application config des sources: {e}")
     
     async def get_market_data(self, symbols: List[str], source: str = "coinmarketcap") -> Dict[str, MarketData]:
         """Récupère les données de marché depuis une source alternative"""

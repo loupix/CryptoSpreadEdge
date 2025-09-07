@@ -55,6 +55,15 @@ class ArbitrageConfig:
 
 
 @dataclass
+class DataSourceConfig:
+    """Configuration d'une source de données alternative"""
+    name: str
+    enabled: bool = True
+    api_key: str = ""
+    update_interval: float = 5.0
+
+
+@dataclass
 class ExchangeConfig:
     """Configuration d'un exchange"""
     name: str
@@ -148,6 +157,33 @@ EXCHANGE_FEES = {
     "kucoin": {"maker": 0.001, "taker": 0.001},
     "coinbase": {"maker": 0.005, "taker": 0.005},
     "kraken": {"maker": 0.0016, "taker": 0.0026}
+}
+
+# Configuration des sources de données alternatives
+DATA_SOURCES: Dict[str, DataSourceConfig] = {
+    # Agrégateurs / données publiques
+    "coinmarketcap": DataSourceConfig(name="coinmarketcap", enabled=True, api_key=""),
+    "coingecko": DataSourceConfig(name="coingecko", enabled=True, api_key=""),
+    "cryptocompare": DataSourceConfig(name="cryptocompare", enabled=True, api_key=""),
+    "messari": DataSourceConfig(name="messari", enabled=True, api_key=""),
+    # On-chain / analytics
+    "glassnode": DataSourceConfig(name="glassnode", enabled=False, api_key=""),
+    "defillama": DataSourceConfig(name="defillama", enabled=True, api_key=""),
+    "dune": DataSourceConfig(name="dune", enabled=False, api_key=""),
+    "thegraph": DataSourceConfig(name="thegraph", enabled=False, api_key=""),
+    "moralis": DataSourceConfig(name="moralis", enabled=False, api_key=""),
+    "alchemy": DataSourceConfig(name="alchemy", enabled=False, api_key=""),
+    # Endpoints publics des exchanges (lecture seule)
+    "binance_public": DataSourceConfig(name="binance_public", enabled=True),
+    "okx_public": DataSourceConfig(name="okx_public", enabled=True),
+    "bybit_public": DataSourceConfig(name="bybit_public", enabled=True),
+    "kucoin_public": DataSourceConfig(name="kucoin_public", enabled=True),
+    "kraken_public": DataSourceConfig(name="kraken_public", enabled=True),
+    "bitfinex_public": DataSourceConfig(name="bitfinex_public", enabled=True),
+    "bitstamp_public": DataSourceConfig(name="bitstamp_public", enabled=True),
+    "gateio_public": DataSourceConfig(name="gateio_public", enabled=True),
+    "huobi_public": DataSourceConfig(name="huobi_public", enabled=True),
+    "mexc_public": DataSourceConfig(name="mexc_public", enabled=True),
 }
 
 # Configuration des alertes
