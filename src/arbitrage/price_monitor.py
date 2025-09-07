@@ -143,7 +143,13 @@ class PriceMonitor:
                 symbols = ["BTC", "ETH", "BNB", "ADA", "DOT", "LINK", "LTC", "BCH", "XRP", "EOS"]
                 
                 # Récupérer les données des sources alternatives
-                for source_name in ["coinmarketcap", "coingecko", "cryptocompare", "messari"]:
+                for source_name in [
+                    "coinmarketcap", "coingecko", "cryptocompare", "messari",
+                    # Sources publiques par exchange
+                    "binance_public", "okx_public", "bybit_public", "kucoin_public",
+                    "kraken_public", "bitfinex_public", "bitstamp_public", "gateio_public",
+                    "huobi_public", "mexc_public"
+                ]:
                     try:
                         data = await data_aggregator.alternative_sources.get_market_data(symbols, source_name)
                         

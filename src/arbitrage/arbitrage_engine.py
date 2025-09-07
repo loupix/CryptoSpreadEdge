@@ -229,7 +229,13 @@ class ArbitrageEngine:
                         self.logger.debug(f"Erreur prix {exchange_id} {symbol}: {e}")
             
             # Récupérer les prix des sources alternatives
-            for source_name in ["coinmarketcap", "coingecko", "cryptocompare"]:
+            for source_name in [
+                "coinmarketcap", "coingecko", "cryptocompare", "messari",
+                # Sources publiques par exchange
+                "binance_public", "okx_public", "bybit_public", "kucoin_public",
+                "kraken_public", "bitfinex_public", "bitstamp_public", "gateio_public",
+                "huobi_public", "mexc_public"
+            ]:
                 try:
                     data = await data_aggregator.alternative_sources.get_market_data([symbol], source_name)
                     if symbol in data and data[symbol].ticker:
