@@ -9,6 +9,8 @@ from .spoofing_layering_detector import SpoofingLayeringDetector
 from .wash_trading_detector import WashTradingDetector
 from .types import MarketAbuseAlert, OrderBookSnapshot, TradeEvent
 from .sinks import AlertSink, FileAlertSink, PrometheusAlertSink
+from .opportunities import opportunities_from_alert, Opportunity
+from .opportunity_sinks import OpportunitySink, FileOpportunitySink
 
 
 class MarketAbuseStreamMonitor:
@@ -22,6 +24,7 @@ class MarketAbuseStreamMonitor:
         lookback_minutes: int = 10,
         sinks: Optional[List[AlertSink]] = None,
         symbol_thresholds: Optional[Dict[str, float]] = None,
+        on_opportunities: Optional[callable] = None,
     ) -> None:
         self.symbol = symbol
         lookback = timedelta(minutes=lookback_minutes)
@@ -29,6 +32,8 @@ class MarketAbuseStreamMonitor:
         # Par défaut, écrire en fichier uniquement. Le sink Prometheus doit être injecté par l'appelant.
         self.sinks = sinks or [FileAlertSink()]
         self.symbol_thresholds = symbol_thresholds or {}
+        self.on_opportunities = on_opportunities
+        self.opportunity_sinks: List[OpportunitySink] = [FileOpportunitySink()]
         if enable_pump_dump:
             self.detectors.append(PumpAndDumpDetector(symbol=symbol, lookback=lookback))
         if enable_spoofing:
@@ -44,6 +49,7 @@ class MarketAbuseStreamMonitor:
             alerts.extend(det.update_trade(trade))
         alerts = self._apply_symbol_thresholds(alerts)
         self._emit(alerts)
+        self._emit_opportunities(alerts)
         return alerts
 
     def on_orderbook(self, ob: OrderBookSnapshot) -> List[MarketAbuseAlert]:
@@ -52,6 +58,7 @@ class MarketAbuseStreamMonitor:
             alerts.extend(det.update_orderbook(ob))
         alerts = self._apply_symbol_thresholds(alerts)
         self._emit(alerts)
+        self._emit_opportunities(alerts)
         return alerts
 
     def run_offline_trades(self, trades: Iterable[TradeEvent]) -> List[MarketAbuseAlert]:
@@ -75,5 +82,24 @@ class MarketAbuseStreamMonitor:
                 sink.emit(alerts)  # type: ignore[attr-defined]
             except AttributeError:
                 # Sink async: ignore ici (utiliser explicitement DatabaseAlertSink.emit_async ailleurs)
+                pass
+
+    def _emit_opportunities(self, alerts: List[MarketAbuseAlert]) -> None:
+        if not alerts or self.on_opportunities is None:
+            return
+        opps: List[Opportunity] = []
+        for a in alerts:
+            opps.extend(opportunities_from_alert(a))
+        if opps:
+            try:
+                self.on_opportunities(opps)
+            except Exception:
+                # Ne pas faire échouer le flux en cas d'erreur de callback
+                pass
+        # Émettre vers les sinks d'opportunités
+        for sink in self.opportunity_sinks:
+            try:
+                sink.emit(opps)  # type: ignore[attr-defined]
+            except AttributeError:
                 pass
 

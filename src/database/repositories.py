@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, update, delete, and_, or_, desc, asc
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from .models import Order, Position, Trade, Strategy, Portfolio, AuditLog, MarketAbuseAlertRecord
+from .models import Order, Position, Trade, Strategy, Portfolio, AuditLog, MarketAbuseAlertRecord, OpportunityRecord
 from .models import OrderStatus, PositionStatus, StrategyStatus, OrderSide, PositionType
 
 logger = logging.getLogger(__name__)
@@ -400,6 +400,25 @@ class MarketAbuseAlertRepository(BaseRepository):
         query = select(MarketAbuseAlertRecord).order_by(desc(MarketAbuseAlertRecord.timestamp)).limit(limit)
         if symbol:
             query = query.where(MarketAbuseAlertRecord.symbol == symbol)
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
+
+class OpportunityRepository(BaseRepository):
+    """Repository pour les opportunités"""
+
+    async def create(self, opp_data: Dict[str, Any]) -> OpportunityRecord:
+        if "metadata" in opp_data and "meta_data" not in opp_data:
+            opp_data["meta_data"] = opp_data.pop("metadata")
+        record = OpportunityRecord(**opp_data)
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
+    async def get_recent(self, symbol: str = None, limit: int = 100):
+        query = select(OpportunityRecord).order_by(desc(OpportunityRecord.created_at)).limit(limit)
+        if symbol:
+            query = query.where(OpportunityRecord.symbol == symbol)
         result = await self.session.execute(query)
         return result.scalars().all()
 

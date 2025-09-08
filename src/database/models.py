@@ -263,3 +263,21 @@ class MarketAbuseAlertRecord(Base):
         Index('idx_ma_alerts_type_time', 'alert_type', 'timestamp'),
         Index('idx_ma_alerts_exchange', 'exchange'),
     )
+
+
+class OpportunityRecord(Base):
+    """Persistance des opportunités générées"""
+    __tablename__ = 'opportunities'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    symbol = Column(String(32), nullable=False, index=True)
+    kind = Column(String(64), nullable=False, index=True)
+    confidence = Column(Float, nullable=False)
+    rationale = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    meta_data = Column(JSONB, nullable=True)
+
+    __table_args__ = (
+        Index('idx_opps_symbol_created', 'symbol', 'created_at'),
+        Index('idx_opps_kind', 'kind'),
+    )
