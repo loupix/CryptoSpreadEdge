@@ -2,7 +2,7 @@
  * Composant pour la gestion des utilisateurs
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -43,6 +43,7 @@ import {
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUsers, useDeleteUser } from '../../hooks/useDatabaseApi';
+import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 import { User } from '../../services/databaseApi';
 import Sparkline from '../Charts/Sparkline';
 
@@ -71,6 +72,9 @@ const UsersTable: React.FC<UsersTableProps> = ({
     offset: filters.offset * filters.limit,
   });
 
+  // Debounce refetch when filters change rapidly
+  const { debounced: debouncedRefetch } = useDebouncedCallback(() => refetch(), 250);
+
   const deleteUserMutation = useDeleteUser();
 
   const users = usersData?.users || [];
@@ -83,6 +87,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
       [field]: value,
       offset: 0, // Reset to first page when filtering
     }));
+    debouncedRefetch();
   };
 
   const generateActivitySeries = (seedBase: number) => {
@@ -206,6 +211,30 @@ const UsersTable: React.FC<UsersTableProps> = ({
     );
   }
 
+  // Simple virtualization for table rows
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [virtual, setVirtual] = useState({ start: 0, end: 30, rowHeight: 48 });
+  const totalRows = users.length;
+  const onScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const scrollTop = el.scrollTop;
+    const viewport = el.clientHeight;
+    const rowHeight = virtual.rowHeight;
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 5);
+    const end = Math.min(totalRows, Math.ceil((scrollTop + viewport) / rowHeight) + 5);
+    setVirtual(v => ({ ...v, start, end }));
+  }, [totalRows, virtual.rowHeight]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [onScroll]);
+
+  const visibleUsers = users.slice(virtual.start, virtual.end);
+
   return (
     <Box>
       {/* Filtres */}
@@ -256,7 +285,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
       </Box>
 
       {/* Table */}
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ maxHeight: 520 }} ref={containerRef}>
         <Table>
           <TableHead>
             <TableRow>
@@ -273,7 +302,12 @@ const UsersTable: React.FC<UsersTableProps> = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((user) => (
+            {virtual.start > 0 && (
+              <TableRow>
+                <TableCell colSpan={9} sx={{ height: virtual.start * virtual.rowHeight, p: 0 }} />
+              </TableRow>
+            )}
+            {visibleUsers.map((user) => (
               <TableRow key={user.id} hover>
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
@@ -380,6 +414,11 @@ const UsersTable: React.FC<UsersTableProps> = ({
                 </TableCell>
               </TableRow>
             ))}
+            {virtual.end < totalRows && (
+              <TableRow>
+                <TableCell colSpan={9} sx={{ height: Math.max(0, (totalRows - virtual.end) * virtual.rowHeight), p: 0 }} />
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>

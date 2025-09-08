@@ -53,6 +53,47 @@ const menuItems = [
   { text: 'Paramètres', icon: <SettingsIcon />, path: '/settings' },
 ];
 
+// Préchargement des routes au survol (React.lazy warmup)
+const prefetchRoute = (path: string) => {
+  switch (path) {
+    case '/':
+      import('../../pages/Dashboard');
+      break;
+    case '/market-data':
+      import('../../pages/MarketData');
+      break;
+    case '/indicators':
+      import('../../pages/Indicators');
+      break;
+    case '/predictions':
+      import('../../pages/Predictions');
+      break;
+    case '/arbitrage':
+      import('../../pages/Arbitrage');
+      break;
+    case '/trading':
+      import('../../pages/Trading');
+      break;
+    case '/historical-data':
+      import('../../pages/HistoricalData');
+      break;
+    case '/users':
+      import('../../pages/UserManagement');
+      break;
+    case '/performance':
+      import('../../pages/Performance');
+      break;
+    case '/exchanges':
+      import('../../pages/ExchangeConfig');
+      break;
+    case '/settings':
+      import('../../pages/Settings');
+      break;
+    default:
+      break;
+  }
+};
+
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
@@ -85,6 +126,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <ListItemButton
               selected={location.pathname === item.path}
               onClick={() => handleNavigation(item.path)}
+              onMouseEnter={() => prefetchRoute(item.path)}
               sx={{
                 '&.Mui-selected': {
                   backgroundColor: 'primary.main',

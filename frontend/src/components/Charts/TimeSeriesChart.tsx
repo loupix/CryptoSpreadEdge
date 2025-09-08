@@ -107,5 +107,5 @@ const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({
   );
 };
 
-export default TimeSeriesChart;
+export default React.memo(TimeSeriesChart);
 

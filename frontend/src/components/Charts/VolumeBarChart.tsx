@@ -69,5 +69,5 @@ const VolumeBarChart: React.FC<VolumeBarChartProps> = ({
   return content;
 };
 
-export default VolumeBarChart;
+export default React.memo(VolumeBarChart);
 

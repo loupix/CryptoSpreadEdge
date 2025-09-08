@@ -2,7 +2,7 @@
  * Composant pour la gestion des alertes et notifications
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -52,6 +52,7 @@ import {
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAlerts, useCreateAlert, useUpdateAlert, useDeleteAlert } from '../../hooks/useDatabaseApi';
+import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
 import { Alert as AlertType } from '../../services/databaseApi';
 
 interface AlertsManagerProps {
@@ -85,6 +86,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
     ...filters,
     offset: filters.offset * filters.limit,
   });
+  const { debounced: debouncedRefetch } = useDebouncedCallback(() => refetch(), 250);
 
   const createAlertMutation = useCreateAlert();
   const updateAlertMutation = useUpdateAlert();
@@ -100,6 +102,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
       [field]: value,
       offset: 0, // Reset to first page when filtering
     }));
+    debouncedRefetch();
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
@@ -248,6 +251,31 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
     );
   }
 
+  // Virtualization basics
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [virtual, setVirtual] = useState({ start: 0, end: 30, rowHeight: 48 });
+  const alerts = alertsData?.alerts || [];
+  const totalRows = alerts.length;
+  const onScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const scrollTop = el.scrollTop;
+    const viewport = el.clientHeight;
+    const rowHeight = virtual.rowHeight;
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 5);
+    const end = Math.min(totalRows, Math.ceil((scrollTop + viewport) / rowHeight) + 5);
+    setVirtual(v => ({ ...v, start, end }));
+  }, [totalRows, virtual.rowHeight]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [onScroll]);
+
+  const visibleAlerts = alerts.slice(virtual.start, virtual.end);
+
   return (
     <Box>
       {/* Filtres */}
@@ -311,7 +339,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
       </Box>
 
       {/* Table */}
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ maxHeight: 520 }} ref={containerRef}>
         <Table>
           <TableHead>
             <TableRow>
@@ -327,7 +355,12 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {alerts.map((alert) => (
+            {virtual.start > 0 && (
+              <TableRow>
+                <TableCell colSpan={9} sx={{ height: virtual.start * virtual.rowHeight, p: 0 }} />
+              </TableRow>
+            )}
+            {visibleAlerts.map((alert) => (
               <TableRow key={alert.id} hover>
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
@@ -409,6 +442,11 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
                 </TableCell>
               </TableRow>
             ))}
+            {virtual.end < totalRows && (
+              <TableRow>
+                <TableCell colSpan={9} sx={{ height: Math.max(0, (totalRows - virtual.end) * virtual.rowHeight), p: 0 }} />
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>

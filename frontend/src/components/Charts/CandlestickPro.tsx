@@ -23,9 +23,9 @@ const computeMA = (data: Candle[], period: number) => {
 };
 
 const CandlestickPro: React.FC<CandlestickProProps> = ({ title, data, height = 260, showMA = true }) => {
-  const ma20 = computeMA(data, 20);
-  const ma50 = computeMA(data, 50);
-  const lineData = data.map(d => ({ timestamp: d.timestamp, close: d.close }));
+  const ma20 = React.useMemo(() => computeMA(data, 20), [data]);
+  const ma50 = React.useMemo(() => computeMA(data, 50), [data]);
+  const lineData = React.useMemo(() => data.map(d => ({ timestamp: d.timestamp, close: d.close })), [data]);
   return (
     <Card>
       <CardContent>
@@ -48,5 +48,5 @@ const CandlestickPro: React.FC<CandlestickProProps> = ({ title, data, height = 2
   );
 };
 
-export default CandlestickPro;
+export default React.memo(CandlestickPro);
 

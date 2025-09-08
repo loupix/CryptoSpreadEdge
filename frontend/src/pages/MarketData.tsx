@@ -23,6 +23,7 @@ import {
   LinearProgress,
   Skeleton,
 } from '@mui/material';
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import { ResponsiveContainer } from 'recharts';
 import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
 import VolumeBarChart from '../components/Charts/VolumeBarChart';
@@ -70,6 +71,8 @@ const MarketData: React.FC = () => {
     }
   };
 
+  const { debounced: debouncedReload } = useDebouncedCallback(loadMarketData, 300);
+
   const connectWebSocket = () => {
     wsService.connect();
     
@@ -103,12 +106,12 @@ const MarketData: React.FC = () => {
     return ((latest.close - previous.close) / previous.close) * 100;
   };
 
-  const prepareChartData = (data: any[]) => {
+  const prepareChartData = React.useCallback((data: any[]) => {
     return data.map(item => ({
       ...item,
       timestamp: new Date(item.timestamp).getTime(),
     }));
-  };
+  }, []);
 
   return (
     <Box>
@@ -126,7 +129,7 @@ const MarketData: React.FC = () => {
                 <Select
                   multiple
                   value={selectedSymbols}
-                  onChange={(e) => setSelectedSymbols(e.target.value as string[])}
+                  onChange={(e) => { setSelectedSymbols(e.target.value as string[]); debouncedReload(); }}
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {selected.map((value) => (
@@ -149,7 +152,7 @@ const MarketData: React.FC = () => {
                 <InputLabel>Timeframe</InputLabel>
                 <Select
                   value={selectedTimeframe}
-                  onChange={(e) => setSelectedTimeframe(e.target.value)}
+                  onChange={(e) => { setSelectedTimeframe(e.target.value); debouncedReload(); }}
                 >
                   {TIMEFRAMES.map((tf) => (
                     <MenuItem key={tf} value={tf}>
@@ -166,7 +169,7 @@ const MarketData: React.FC = () => {
                 label="Limite"
                 type="number"
                 value={limit}
-                onChange={(e) => setLimit(parseInt(e.target.value) || 100)}
+                onChange={(e) => { setLimit(parseInt(e.target.value) || 100); debouncedReload(); }}
                 inputProps={{ min: 1, max: 1000 }}
               />
             </Grid>

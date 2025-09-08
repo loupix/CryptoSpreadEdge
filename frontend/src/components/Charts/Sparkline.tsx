@@ -23,5 +23,5 @@ const Sparkline: React.FC<SparklineProps> = ({ data, height = 60, color = '#22c5
   );
 };
 
-export default Sparkline;
+export default React.memo(Sparkline);
 

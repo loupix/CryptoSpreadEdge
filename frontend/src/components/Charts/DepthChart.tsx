@@ -39,5 +39,5 @@ const DepthChart: React.FC<DepthChartProps> = ({ bids, asks, height = 200, title
   );
 };
 
-export default DepthChart;
+export default React.memo(DepthChart);
 
