@@ -16,6 +16,8 @@ CryptoSpreadEdge est une plateforme de trading automatisée pour les cryptomonna
 - **IA intégrée** : Stratégies de trading basées sur l'apprentissage automatique
 - **Analyse de marché** : Détection automatique des opportunités
 - **Gestion des risques** : Contrôles automatiques et alertes
+- **Persistance PostgreSQL** : Stockage robuste des données de trading
+- **APIs historiques** : Accès complet à l'historique des opérations
 - **Déploiement Docker Swarm** : Infrastructure scalable et résiliente
 
 ## Architecture
@@ -33,6 +35,7 @@ Le projet suit une architecture modulaire avec les composants suivants :
 
 - **Backend** : Python 3.11+, FastAPI, asyncio
 - **Trading** : CCXT, WebSockets, Redis, InfluxDB
+- **Base de données** : PostgreSQL, SQLAlchemy, asyncpg
 - **IA/ML** : PyTorch, TensorFlow, scikit-learn, TA-Lib
 - **Infrastructure** : Docker Swarm, Prometheus, Grafana, ELK Stack
 
