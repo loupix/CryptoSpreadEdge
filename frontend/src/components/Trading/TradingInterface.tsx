@@ -66,6 +66,9 @@ import {
   usePortfolioSummary 
 } from '../../hooks/useDatabaseApi';
 import { Order, Position, Trade } from '../../services/databaseApi';
+import OpenPositionsCompact from './OpenPositionsCompact';
+import OrdersCompact from './OrdersCompact';
+import TradesTimeline from './TradesTimeline';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -380,6 +383,20 @@ const TradingInterface: React.FC = () => {
 
         <TabPanel value={activeTab} index={0}>
           <Box>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={6}>
+                <OrdersCompact
+                  items={orders.map(o => ({ id: o.id, symbol: o.symbol, side: o.side as any, type: o.order_type, qty: o.quantity, price: o.price, status: o.status }))}
+                  onCancel={handleCancelOrder}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <OpenPositionsCompact
+                  items={positions.map(p => ({ id: p.id, symbol: p.symbol, side: (p.side === 'buy' ? 'long' : 'short') as any, qty: p.quantity, entry: p.entry_price, pnl: p.unrealized_pnl || 0 }))}
+                  onClose={handleClosePosition}
+                />
+              </Grid>
+            </Grid>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
               <Typography variant="h6">Ordres Actifs</Typography>
               <Button
@@ -477,6 +494,14 @@ const TradingInterface: React.FC = () => {
 
         <TabPanel value={activeTab} index={1}>
           <Box>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12}>
+                <OpenPositionsCompact
+                  items={positions.map(p => ({ id: p.id, symbol: p.symbol, side: (p.side === 'buy' ? 'long' : 'short') as any, qty: p.quantity, entry: p.entry_price, pnl: p.unrealized_pnl || 0 }))}
+                  onClose={handleClosePosition}
+                />
+              </Grid>
+            </Grid>
             <Typography variant="h6" gutterBottom>Positions Ouvertes</Typography>
             
             {positionsLoading ? (
@@ -575,6 +600,13 @@ const TradingInterface: React.FC = () => {
 
         <TabPanel value={activeTab} index={2}>
           <Box>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12}>
+                <TradesTimeline
+                  items={trades.map(t => ({ id: t.id, time: format(new Date(t.timestamp), 'HH:mm:ss', { locale: fr }), symbol: t.symbol, side: t.side as any, price: t.price, qty: t.quantity }))}
+                />
+              </Grid>
+            </Grid>
             <Typography variant="h6" gutterBottom>Historique des Trades</Typography>
             
             {tradesLoading ? (

@@ -9,6 +9,7 @@ import {
   LinearProgress,
   Alert,
 } from '@mui/material';
+import Skeleton from '@mui/material/Skeleton';
 import {
   TrendingUp,
   TrendingDown,
@@ -17,7 +18,12 @@ import {
   CompareArrows,
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
+import HeatmapChart from '../components/Charts/HeatmapChart';
+import AlertsTicker from '../components/Dashboard/AlertsTicker';
+import NewsFeed from '../components/Dashboard/NewsFeed';
 import { apiClient, MarketDataResponse, HealthResponse } from '../services/api';
+import { useAlerts } from '../hooks/useDatabaseApi';
 import { wsService } from '../services/websocket';
 
 interface DashboardStats {
@@ -40,6 +46,7 @@ const Dashboard: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { data: alertsData } = (useAlerts as any)?.({ limit: 5 }) || { data: null };
 
   useEffect(() => {
     loadDashboardData();
@@ -94,6 +101,43 @@ const Dashboard: React.FC = () => {
     });
   };
 
+  const renderServiceLatency = () => {
+    if (!health) return null;
+    const entries = Object.entries(health.services);
+    return (
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Latence API par Service
+          </Typography>
+          <Grid container spacing={2}>
+            {entries.map(([name, s]: any) => (
+              <Grid item xs={12} sm={6} md={4} key={name}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {name}
+                      </Typography>
+                      <Chip
+                        label={`${s.response_time} ms`}
+                        color={s.response_time < 150 ? 'success' : s.response_time < 400 ? 'warning' : 'error'}
+                        size="small"
+                      />
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {s.status}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy': return 'success';
@@ -114,10 +158,15 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <Box sx={{ width: '100%' }}>
-        <LinearProgress />
-        <Typography variant="h6" sx={{ mt: 2, textAlign: 'center' }}>
-          Chargement du dashboard...
-        </Typography>
+        <Skeleton variant="rectangular" height={56} sx={{ mb: 2 }} />
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Grid item xs={12} sm={6} md={3} key={i}>
+              <Skeleton variant="rectangular" height={120} />
+            </Grid>
+          ))}
+        </Grid>
+        <Skeleton variant="rectangular" height={320} />
       </Box>
     );
   }
@@ -231,40 +280,15 @@ const Dashboard: React.FC = () => {
       </Grid>
 
       {/* Graphique des prix */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Prix des Cryptomonnaies (24h)
-          </Typography>
-          <Box sx={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={marketData[0]?.data || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-                  stroke="#b0b0b0"
-                />
-                <YAxis 
-                  tickFormatter={(value) => formatPrice(value)}
-                  stroke="#b0b0b0"
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatPrice(value), 'Prix']}
-                  labelFormatter={(label) => new Date(label).toLocaleString()}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="close" 
-                  stroke="#00ff88" 
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Box>
-        </CardContent>
-      </Card>
+      <TimeSeriesChart
+        title="Prix des Cryptomonnaies (24h)"
+        data={(marketData[0]?.data || []).map(p => ({ timestamp: p.timestamp, value: p.close }))}
+        height={320}
+        variant="area"
+        color="#00e19d"
+        valueFormatter={(v) => formatPrice(v)}
+        timestampFormatter={(t) => new Date(t).toLocaleTimeString()}
+      />
 
       {/* Liste des cryptos */}
       <Card>
@@ -309,6 +333,63 @@ const Dashboard: React.FC = () => {
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Dernières alertes */}
+      {alertsData?.alerts?.length ? (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Dernières alertes
+            </Typography>
+            <Grid container spacing={2}>
+              {alertsData.alerts.map((al: any) => (
+                <Grid item xs={12} md={6} key={al.id}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {al.name}
+                        </Typography>
+                        <Chip label={al.severity.toUpperCase()} size="small" color={al.severity === 'critical' ? 'error' : al.severity === 'high' ? 'warning' : al.severity === 'medium' ? 'info' : 'success'} />
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {al.alert_type} · {al.symbol || '-'} · {al.triggered_count}x
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {renderServiceLatency()}
+
+      {/* Heatmap corrélations (mock basique) */}
+      <Box sx={{ mt: 3 }}>
+        <HeatmapChart
+          title="Corrélations (mock)"
+          labelsX={['BTC','ETH','BNB','ADA','SOL']}
+          labelsY={['BTC','ETH','BNB','ADA','SOL']}
+          values={[
+            [1, 0.82, 0.55, 0.41, 0.36],
+            [0.82, 1, 0.58, 0.39, 0.33],
+            [0.55, 0.58, 1, 0.29, 0.25],
+            [0.41, 0.39, 0.29, 1, 0.18],
+            [0.36, 0.33, 0.25, 0.18, 1],
+          ]}
+        />
+      </Box>
+
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={8}>
+          <AlertsTicker items={(alertsData?.alerts || []).slice(0, 8).map((a: any) => ({ id: a.id, text: `${a.severity.toUpperCase()} • ${a.alert_type} • ${a.symbol || '-'}` }))} />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <NewsFeed items={[{ id: '1', title: 'BTC franchit 70k$ (mock)', source: 'MarketWire', time: 'il y a 2 min' }, { id: '2', title: 'ETH mise à jour réseau (mock)', source: 'CryptoNews', time: 'il y a 10 min' }]} />
+        </Grid>
+      </Grid>
     </Box>
   );
 };

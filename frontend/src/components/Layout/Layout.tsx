@@ -29,6 +29,8 @@ import {
   PlayArrow as PlayArrowIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
+import { Brightness4 as DarkModeIcon, Brightness7 as LightModeIcon } from '@mui/icons-material';
+import NotificationsBell from '../../components/App/NotificationsBell';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const drawerWidth = 240;
@@ -110,8 +112,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          backgroundColor: 'background.paper',
-          borderBottom: '1px solid #333',
         }}
       >
         <Toolbar>
@@ -127,6 +127,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {menuItems.find(item => item.path === location.pathname)?.text || 'CryptoSpreadEdge'}
           </Typography>
+          <IconButton
+            color="inherit"
+            aria-label="toggle theme"
+            onClick={() => {
+              const currentMode = theme.palette.mode;
+              const nextMode = currentMode === 'dark' ? 'light' : 'dark';
+              localStorage.setItem('cryptospreadedge-theme', nextMode);
+              const event = new CustomEvent('cryptospreadedge-theme-change', { detail: { mode: nextMode } });
+              window.dispatchEvent(event);
+            }}
+          >
+            {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
+          <NotificationsBell items={[]} />
         </Toolbar>
       </AppBar>
 
@@ -146,8 +160,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
-              backgroundColor: 'background.paper',
-              borderRight: '1px solid #333',
             },
           }}
         >
@@ -160,8 +172,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
-              backgroundColor: 'background.paper',
-              borderRight: '1px solid #333',
             },
           }}
           open

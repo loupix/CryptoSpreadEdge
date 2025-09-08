@@ -26,18 +26,9 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Area,
-  AreaChart,
-  ReferenceLine,
-} from 'recharts';
+import { ResponsiveContainer, ReferenceLine } from 'recharts';
+import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
+import Sparkline from '../components/Charts/Sparkline';
 import { apiClient, PredictionResponse, MarketDataResponse } from '../services/api';
 import { wsService } from '../services/websocket';
 
@@ -320,44 +311,17 @@ const Predictions: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Graphique des Prédictions - {selectedSymbol}
               </Typography>
-              <Box sx={{ height: 400 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={prepareChartData()}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis 
-                      dataKey="timestamp"
-                      type="number"
-                      scale="time"
-                      domain={['dataMin', 'dataMax']}
-                      tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-                      stroke="#b0b0b0"
-                    />
-                    <YAxis 
-                      tickFormatter={(value) => formatPrice(value)}
-                      stroke="#b0b0b0"
-                    />
-                    <Tooltip 
-                      formatter={(value: number, name: string) => [formatPrice(value), 'Prix']}
-                      labelFormatter={(label) => new Date(label).toLocaleString()}
-                    />
-                    
-                    {/* Données historiques */}
-                    <Area
-                      type="monotone"
-                      dataKey="price"
-                      stroke="#00ff88"
-                      fill="#00ff88"
-                      fillOpacity={0.3}
-                      connectNulls={false}
-                    />
-                    
-                    {/* Ligne de séparation */}
-                    <ReferenceLine 
-                      x={marketData?.data[marketData.data.length - 1]?.timestamp} 
-                      stroke="#ff6b35" 
-                      strokeDasharray="5 5"
-                    />
-                  </AreaChart>
+              <Box sx={{ height: 420 }}>
+                <TimeSeriesChart
+                  data={prepareChartData().map(d => ({ timestamp: d.timestamp, value: d.price }))}
+                  height={420}
+                  variant="area"
+                  color="#7aa2f7"
+                  valueFormatter={(v) => formatPrice(v)}
+                  timestampFormatter={(t) => new Date(t as number).toLocaleTimeString()}
+                />
+                <ResponsiveContainer width="0" height="0">
+                  <ReferenceLine x={marketData?.data[marketData.data.length - 1]?.timestamp as any} />
                 </ResponsiveContainer>
               </Box>
             </TabPanel>
@@ -397,6 +361,19 @@ const Predictions: React.FC = () => {
                             color={pred.predicted_change >= 0 ? 'success' : 'error'}
                             size="small"
                           />
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ width: 120 }}>
+                            <Sparkline
+                              data={
+                                marketData
+                                  ? marketData.data.slice(-20).map(c => ({ value: c.close }))
+                                  : []
+                              }
+                              height={36}
+                              color={pred.predicted_change >= 0 ? '#22c55e' : '#ef4444'}
+                            />
+                          </Box>
                         </TableCell>
                         <TableCell>
                           <Chip

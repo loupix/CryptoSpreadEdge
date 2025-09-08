@@ -21,18 +21,16 @@ import {
   Chip,
   Alert,
   LinearProgress,
+  Skeleton,
 } from '@mui/material';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  CandlestickChart,
-  Candlestick,
-} from 'recharts';
+import { ResponsiveContainer } from 'recharts';
+import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
+import VolumeBarChart from '../components/Charts/VolumeBarChart';
+import OrderBookMini from '../components/Charts/OrderBookMini';
+import DepthChart from '../components/Charts/DepthChart';
+import CandlestickPro from '../components/Charts/CandlestickPro';
+import OrderFlowChart from '../components/Charts/OrderFlowChart';
+import Sparkline from '../components/Charts/Sparkline';
 import { apiClient, MarketDataResponse } from '../services/api';
 import { wsService } from '../services/websocket';
 
@@ -188,7 +186,19 @@ const MarketData: React.FC = () => {
         </CardContent>
       </Card>
 
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      {loading && (
+        <Box>
+          <Skeleton variant="rectangular" height={100} sx={{ mb: 2 }} />
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Grid item xs={12} md={6} key={i}>
+                <Skeleton variant="rectangular" height={360} />
+              </Grid>
+            ))}
+          </Grid>
+          <Skeleton variant="rectangular" height={300} />
+        </Box>
+      )}
       
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -223,35 +233,46 @@ const MarketData: React.FC = () => {
                     </Box>
                   </Box>
                   
-                  <Box sx={{ height: 200 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                        <XAxis 
-                          dataKey="timestamp"
-                          type="number"
-                          scale="time"
-                          domain={['dataMin', 'dataMax']}
-                          tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-                          stroke="#b0b0b0"
-                        />
-                        <YAxis 
-                          tickFormatter={(value) => formatPrice(value)}
-                          stroke="#b0b0b0"
-                        />
-                        <Tooltip 
-                          formatter={(value: number) => [formatPrice(value), 'Prix']}
-                          labelFormatter={(label) => new Date(label).toLocaleString()}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="close" 
-                          stroke="#00ff88" 
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                  <Box sx={{ height: 220 }}>
+                    <CandlestickPro
+                      title={undefined}
+                      data={crypto.data.map(p => ({ timestamp: new Date(p.timestamp).getTime(), open: p.open, high: p.high, low: p.low, close: p.close }))}
+                      height={220}
+                      showMA
+                    />
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <VolumeBarChart
+                      data={chartData.map(p => ({ timestamp: p.timestamp, volume: p.volume }))}
+                      height={120}
+                      color="#7aa2f7"
+                      valueFormatter={(v) => formatVolume(v)}
+                      timestampFormatter={(t) => new Date(t as number).toLocaleTimeString()}
+                      outlined
+                      title="Volume"
+                    />
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <DepthChart
+                      bids={(crypto as any).orderbook?.bids || []}
+                      asks={(crypto as any).orderbook?.asks || []}
+                      height={180}
+                      title="Profondeur"
+                    />
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <OrderFlowChart
+                      title="Order Flow (mock)"
+                      data={chartData.slice(-60).map((p, i) => ({ timestamp: p.timestamp, delta: ((i%2)*2-1) * (p.volume*0.1), cvd: i===0? p.volume : (i%2? 1 : -1)*p.volume + (chartData[i-1]?.volume || 0) }))}
+                      height={160}
+                    />
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <OrderBookMini
+                      bids={(crypto as any).orderbook?.bids || []}
+                      asks={(crypto as any).orderbook?.asks || []}
+                      maxLevels={8}
+                    />
                   </Box>
                 </CardContent>
               </Card>
@@ -305,11 +326,20 @@ const MarketData: React.FC = () => {
                         {new Date(crypto.timestamp).toLocaleString()}
                       </TableCell>
                       <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Chip 
                           label={crypto.cached ? 'Oui' : 'Non'} 
                           color={crypto.cached ? 'success' : 'default'}
                           size="small"
                         />
+                          <Box sx={{ width: 100 }}>
+                            <Sparkline
+                              data={crypto.data.slice(-20).map(p => ({ value: p.close }))}
+                              height={32}
+                              color={(latestPrice && crypto.data.length > 1 && latestPrice.close >= crypto.data[crypto.data.length - 2].close) ? '#22c55e' : '#ef4444'}
+                            />
+                          </Box>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );

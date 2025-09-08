@@ -86,6 +86,8 @@ const Settings: React.FC = () => {
     
     // Display Settings
     theme: 'dark',
+    primaryColor: '#00e19d',
+    secondaryColor: '#7aa2f7',
     language: 'fr',
     currency: 'USD',
     timezone: 'Europe/Paris',
@@ -133,6 +135,11 @@ const Settings: React.FC = () => {
       
       // Sauvegarder dans localStorage
       localStorage.setItem('cryptospreadedge-settings', JSON.stringify(settings));
+      if (settings.theme) {
+        localStorage.setItem('cryptospreadedge-theme', settings.theme);
+        const event = new CustomEvent('cryptospreadedge-theme-change', { detail: { mode: settings.theme, primary: settings.primaryColor, secondary: settings.secondaryColor } });
+        window.dispatchEvent(event);
+      }
       
       setSuccess('Paramètres sauvegardés avec succès');
       setTimeout(() => setSuccess(null), 3000);
@@ -452,6 +459,28 @@ const Settings: React.FC = () => {
                   <MenuItem value="light">Clair</MenuItem>
                 </TextField>
               </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Couleur primaire"
+                  type="color"
+                  value={settings.primaryColor}
+                  onChange={(e) => handleSettingChange('primaryColor', e.target.value)}
+                  inputProps={{ style: { height: 48, padding: 0 } }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Couleur secondaire"
+                  type="color"
+                  value={settings.secondaryColor}
+                  onChange={(e) => handleSettingChange('secondaryColor', e.target.value)}
+                  inputProps={{ style: { height: 48, padding: 0 } }}
+                />
+              </Grid>
               
               <Grid item xs={12} md={6}>
                 <TextField
@@ -492,6 +521,50 @@ const Settings: React.FC = () => {
                   <MenuItem value="America/New_York">America/New_York</MenuItem>
                   <MenuItem value="Asia/Tokyo">Asia/Tokyo</MenuItem>
                 </TextField>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      const preset = { primaryColor: '#00e19d', secondaryColor: '#7aa2f7' }; // Cyber
+                      handleSettingChange('primaryColor', preset.primaryColor);
+                      handleSettingChange('secondaryColor', preset.secondaryColor);
+                      localStorage.setItem('cryptospreadedge-settings', JSON.stringify({ ...settings, ...preset }));
+                      const event = new CustomEvent('cryptospreadedge-theme-change', { detail: { mode: settings.theme, ...preset } });
+                      window.dispatchEvent(event);
+                    }}
+                  >
+                    Cyber
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      const preset = { primaryColor: '#38bdf8', secondaryColor: '#22c55e' }; // Ocean
+                      handleSettingChange('primaryColor', preset.primaryColor);
+                      handleSettingChange('secondaryColor', preset.secondaryColor);
+                      localStorage.setItem('cryptospreadedge-settings', JSON.stringify({ ...settings, ...preset }));
+                      const event = new CustomEvent('cryptospreadedge-theme-change', { detail: { mode: settings.theme, ...preset } });
+                      window.dispatchEvent(event);
+                    }}
+                  >
+                    Ocean
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      const preset = { primaryColor: '#00ff5f', secondaryColor: '#00c853' }; // Matrix
+                      handleSettingChange('primaryColor', preset.primaryColor);
+                      handleSettingChange('secondaryColor', preset.secondaryColor);
+                      localStorage.setItem('cryptospreadedge-settings', JSON.stringify({ ...settings, ...preset }));
+                      const event = new CustomEvent('cryptospreadedge-theme-change', { detail: { mode: settings.theme, ...preset } });
+                      window.dispatchEvent(event);
+                    }}
+                  >
+                    Matrix
+                  </Button>
+                </Box>
               </Grid>
               
               <Grid item xs={12}>

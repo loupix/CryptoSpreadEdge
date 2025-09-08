@@ -44,6 +44,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUsers, useDeleteUser } from '../../hooks/useDatabaseApi';
 import { User } from '../../services/databaseApi';
+import Sparkline from '../Charts/Sparkline';
 
 interface UsersTableProps {
   onViewUser?: (user: User) => void;
@@ -82,6 +83,19 @@ const UsersTable: React.FC<UsersTableProps> = ({
       [field]: value,
       offset: 0, // Reset to first page when filtering
     }));
+  };
+
+  const generateActivitySeries = (seedBase: number) => {
+    const length = 20;
+    const result: { value: number }[] = [];
+    let value = Math.max(1, seedBase || 1);
+    for (let i = 0; i < length; i++) {
+      const rand = Math.sin((seedBase + i) * 12.9898) * 43758.5453;
+      const delta = ((rand - Math.floor(rand)) - 0.5) * (value * 0.1);
+      value = Math.max(0, value + delta);
+      result.push({ value: Number(value.toFixed(2)) });
+    }
+    return result;
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
@@ -253,6 +267,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
               <TableCell>Statut</TableCell>
               <TableCell>Dernière connexion</TableCell>
               <TableCell>Connexions</TableCell>
+              <TableCell>Activité</TableCell>
               <TableCell>Sécurité</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
@@ -304,6 +319,15 @@ const UsersTable: React.FC<UsersTableProps> = ({
                   <Typography variant="body2">
                     {user.login_count}
                   </Typography>
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ width: 120 }}>
+                    <Sparkline
+                      data={generateActivitySeries(user.login_count || 1)}
+                      height={32}
+                      color="#7aa2f7"
+                    />
+                  </Box>
                 </TableCell>
                 <TableCell>
                   <Box display="flex" gap={1}>

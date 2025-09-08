@@ -38,7 +38,10 @@ import {
   Security as SecurityIcon,
   Assessment as AssessmentIcon,
   Refresh as RefreshIcon,
+  Error as ErrorIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
+import Sparkline from '../../components/Charts/Sparkline';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { 
@@ -47,6 +50,8 @@ import {
   useSystemHealth,
   useBackupStatus 
 } from '../../hooks/useDatabaseApi';
+import ErrorsTrend from './ErrorsTrend';
+import ServiceLatencyTable from './ServiceLatencyTable';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -82,6 +87,18 @@ const PerformanceDashboard: React.FC = () => {
     start_date: format(new Date(Date.now() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
     end_date: format(new Date(), 'yyyy-MM-dd'),
   });
+
+  const getSeries = (keys: string[]) => {
+    const metrics = (performanceMetrics?.metrics || []) as any[];
+    const filtered = metrics.filter(m => {
+      const name = String(m.metric_name || '').toLowerCase();
+      return keys.some(k => name.includes(k));
+    });
+    return filtered
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .slice(-20)
+      .map(m => ({ value: Number(m.value || 0) }));
+  };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -149,6 +166,13 @@ const PerformanceDashboard: React.FC = () => {
                     value={(performanceSummary.overall_score || 0) * 10}
                     sx={{ mt: 1 }}
                   />
+                  <Box sx={{ mt: 1 }}>
+                    <Sparkline
+                      data={getSeries(['score', 'overall'])}
+                      height={36}
+                      color="#00e19d"
+                    />
+                  </Box>
                   <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
                     Sharpe Ratio: {(performanceSummary.sharpe_ratio || 0).toFixed(2)}
                   </Typography>
@@ -184,6 +208,13 @@ const PerformanceDashboard: React.FC = () => {
                   <Typography variant="body2" color="textSecondary">
                     Min: {formatDuration(performanceSummary.min_execution_time || 0)}
                   </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <Sparkline
+                      data={getSeries(['latence', 'latency', 'execution'])}
+                      height={36}
+                      color="#7aa2f7"
+                    />
+                  </Box>
                 </Box>
               ) : (
                 <Typography variant="body2" color="textSecondary">
@@ -215,6 +246,13 @@ const PerformanceDashboard: React.FC = () => {
                     value={(systemHealth.memory_usage_percent || 0)}
                     sx={{ mt: 1 }}
                   />
+                  <Box sx={{ mt: 1 }}>
+                    <Sparkline
+                      data={getSeries(['memory', 'mémoire', 'ram'])}
+                      height={36}
+                      color="#f59e0b"
+                    />
+                  </Box>
                   <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
                     {systemHealth.memory_usage_percent || 0}% utilisée
                   </Typography>
@@ -261,6 +299,61 @@ const PerformanceDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Uptime */}
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardHeader
+              avatar={<AccessTimeIcon color="success" />}
+              title="Uptime"
+              subheader="Disponibilité"
+            />
+            <CardContent>
+              {healthLoading ? (
+                <CircularProgress size={24} />
+              ) : systemHealth ? (
+                <Box>
+                  <Typography variant="h6" color="success.main">
+                    {systemHealth.uptime || 'N/A'}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Services: {systemHealth.connections || 0}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="textSecondary">N/A</Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Erreurs / min */}
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardHeader
+              avatar={<ErrorIcon color="error" />}
+              title="Erreurs / min"
+              subheader="Dernières 24h"
+            />
+            <CardContent>
+              {metricsLoading ? (
+                <CircularProgress size={24} />
+              ) : performanceMetrics ? (
+                <Box>
+                  <Typography variant="h6" color="error">
+                    {(() => {
+                      const series = getSeries(['error', 'erreur']);
+                      const last = series[series.length - 1]?.value || 0;
+                      return last.toFixed(0);
+                    })()}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="textSecondary">N/A</Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       {/* Onglets */}
@@ -271,6 +364,7 @@ const PerformanceDashboard: React.FC = () => {
             <Tab label="Requêtes" icon={<SpeedIcon />} />
             <Tab label="Stockage" icon={<StorageIcon />} />
             <Tab label="Backup" icon={<SecurityIcon />} />
+            <Tab label="Événements" icon={<RefreshIcon />} />
           </Tabs>
         </Box>
 
@@ -279,6 +373,16 @@ const PerformanceDashboard: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Métriques de Performance
             </Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={6}>
+                <ErrorsTrend data={(performanceMetrics?.errors_trend || []).map((e: any) => ({ timestamp: e.timestamp, errorsPerMin: e.value }))} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <ServiceLatencyTable
+                  items={Object.entries(systemHealth?.services || {}).map(([name, s]: any) => ({ name, status: s.status, response_time: s.response_time }))}
+                />
+              </Grid>
+            </Grid>
             {metricsLoading ? (
               <Box display="flex" justifyContent="center" p={3}>
                 <CircularProgress />
@@ -400,6 +504,50 @@ const PerformanceDashboard: React.FC = () => {
               <Alert severity="info">
                 Aucune information de backup disponible
               </Alert>
+            )}
+          </Box>
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={4}>
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              Événements Récents
+            </Typography>
+            {metricsLoading ? (
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
+              </Box>
+            ) : performanceMetrics ? (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Timestamp</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Message</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(performanceMetrics.events || []).slice(0, 20).map((ev: any, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          {format(new Date(ev.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={ev.level?.toUpperCase() || 'INFO'} color={ev.level === 'error' ? 'error' : ev.level === 'warning' ? 'warning' : 'default'} size="small" />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" noWrap>
+                            {ev.message}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Alert severity="info">Aucun événement</Alert>
             )}
           </Box>
         </TabPanel>
