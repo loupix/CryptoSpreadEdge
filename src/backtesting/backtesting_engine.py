@@ -13,6 +13,7 @@ from enum import Enum
 
 from ..prediction.signal_generator import TradingSignal, SignalType
 from ..indicators.base_indicator import IndicatorValue
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 class PositionType(Enum):
@@ -378,6 +379,7 @@ class BacktestingEngine:
         self.data = None
         self.signals = []
         self.results = None
+        self._event_bus: RedisEventBus | None = None
     
     def set_strategy(self, strategy: BacktestStrategy):
         """Définit la stratégie de backtesting"""
@@ -407,6 +409,21 @@ class BacktestingEngine:
             raise ValueError("Signaux non chargés")
         
         self.logger.info("Début du backtest")
+        # Connexion EventBus lazy
+        if self._event_bus is None:
+            try:
+                self._event_bus = RedisEventBus()
+                import asyncio
+                loop = None
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    pass
+                # Dans un contexte sync, on poursuit sans bloquer si pas d'event loop
+                if loop and loop.is_running():
+                    loop.create_task(self._event_bus.connect())
+            except Exception:
+                pass
         
         # Réinitialiser le portefeuille
         self.portfolio.reset(initial_capital)
@@ -461,6 +478,12 @@ class BacktestingEngine:
             
             # Ajouter un point à la courbe d'équité
             self.portfolio.add_equity_point(current_time)
+            # Publier point d'équité
+            self._publish_bt_event_sync('backtesting.equity', {
+                'timestamp': current_time.isoformat(),
+                'equity': self.portfolio.total_equity,
+                'capital': self.portfolio.current_capital,
+            })
         
         # Fermer toutes les positions restantes
         for symbol in list(self.portfolio.positions.keys()):
@@ -471,6 +494,14 @@ class BacktestingEngine:
         self.results = self._calculate_results()
         
         self.logger.info("Backtest terminé")
+        # Publier résultats
+        self._publish_bt_event_sync('backtesting.results', {
+            'total_trades': self.results.total_trades if self.results else 0,
+            'win_rate': self.results.win_rate if self.results else 0.0,
+            'total_pnl': self.results.total_pnl if self.results else 0.0,
+            'sharpe_ratio': self.results.sharpe_ratio if self.results else 0.0,
+            'max_drawdown': self.results.max_drawdown if self.results else 0.0,
+        })
         return self.results
     
     def _calculate_results(self) -> BacktestResult:
@@ -733,6 +764,19 @@ class BacktestingEngine:
         
         except Exception as e:
             self.logger.error(f"Erreur export: {e}")
+
+    def _publish_bt_event_sync(self, stream: str, payload: Dict[str, Any]) -> None:
+        try:
+            import asyncio
+            loop = None
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                pass
+            if loop and loop.is_running() and self._event_bus is not None:
+                loop.create_task(self._event_bus.publish(stream, payload))
+        except Exception:
+            pass
 
 
 # Instance globale du moteur de backtesting

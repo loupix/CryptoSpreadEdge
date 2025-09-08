@@ -13,6 +13,7 @@ import pandas as pd
 
 from ..prediction.signal_generator import TradingSignal, SignalType
 from ..backtesting.backtesting_engine import PositionType, Position, Trade
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 class PositionStatus(Enum):
@@ -267,9 +268,11 @@ class PositionManager:
         # Configuration
         self.portfolio_value = 100000.0
         self.default_sizing_strategy = "percentage"
+        self._event_bus: RedisEventBus | None = None
         
         # Initialiser les stratégies
         self._initialize_sizing_strategies()
+        # Connecter l'EventBus paresseusement à l'utilisation
     
     def _initialize_sizing_strategies(self):
         """Initialise les stratégies de dimensionnement"""
@@ -401,6 +404,8 @@ class PositionManager:
                     
                     self.logger.info(f"Position allouée: {allocation.symbol} "
                                    f"size={allocation.allocated_size:.4f}")
+                    # Publier événement position ouverte
+                    self._publish_position_event_sync("positions.opened", position)
             
             except Exception as e:
                 self.logger.error(f"Erreur traitement demande: {e}")
@@ -464,6 +469,8 @@ class PositionManager:
         for position in self.positions.values():
             if position.symbol in current_prices:
                 position.update_pnl(current_prices[position.symbol], current_time)
+                # Publier mise à jour (throttling externe recommandé)
+                self._publish_position_event_sync("positions.updated", position)
     
     def close_position(self, symbol: str, exit_price: float, 
                       exit_time: datetime, reason: str) -> Optional[Trade]:
@@ -508,6 +515,8 @@ class PositionManager:
         del self.positions[symbol]
         
         self.logger.info(f"Position fermée: {symbol} PnL={net_pnl:.2f} reason={reason}")
+        # Publier fermeture
+        self._publish_position_event_sync("positions.closed", position)
         
         return trade
     
@@ -534,6 +543,38 @@ class PositionManager:
                 for symbol, pos in self.positions.items()
             }
         }
+
+    def _publish_position_event_sync(self, stream: str, position: Position) -> None:
+        try:
+            # Lancer en tâche async si boucle active, sinon ignorer silencieusement
+            import asyncio
+            loop = None
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                pass
+            if loop and loop.is_running():
+                loop.create_task(self._publish_position_event(stream, position))
+        except Exception:
+            pass
+
+    async def _publish_position_event(self, stream: str, position: Position) -> None:
+        try:
+            if self._event_bus is None:
+                self._event_bus = RedisEventBus()
+                await self._event_bus.connect()
+            payload = {
+                "symbol": position.symbol,
+                "type": position.position_type.value,
+                "size": position.size,
+                "entry_price": position.entry_price,
+                "current_price": position.current_price,
+                "entry_time": position.entry_time.isoformat(),
+                "current_time": position.current_time.isoformat(),
+            }
+            await self._event_bus.publish(stream, payload)
+        except Exception:
+            pass
     
     def get_position_risk_metrics(self) -> Dict[str, Any]:
         """Retourne les métriques de risque des positions"""

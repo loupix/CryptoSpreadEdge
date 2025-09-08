@@ -22,6 +22,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import multiprocessing
 
 from ..indicators.base_indicator import IndicatorComposite, IndicatorFactory
+from src.utils.messaging.redis_bus import RedisEventBus
 from ..indicators.technical_indicators import (
     MovingAverageIndicator, RSIIndicator, MACDIndicator,
     BollingerBandsIndicator, StochasticIndicator, VolumeIndicator, ATRIndicator
@@ -64,6 +65,7 @@ class IndicatorsService:
         self.redis_client = None
         self.kafka_producer = None
         self.kafka_consumer = None
+        self.event_bus: Optional[RedisEventBus] = None
         self.is_running = False
         self.cache_ttl = 600  # 10 minutes
         self.batch_size = 50
@@ -125,6 +127,9 @@ class IndicatorsService:
                 encoding="utf-8",
                 decode_responses=True
             )
+            # Event bus Redis Streams
+            self.event_bus = RedisEventBus()
+            await self.event_bus.connect()
             
             # Initialiser Kafka
             self.kafka_producer = KafkaProducer(
@@ -136,18 +141,10 @@ class IndicatorsService:
                 linger_ms=10
             )
             
-            # Initialiser le consumer Kafka
-            self.kafka_consumer = KafkaConsumer(
-                'market-data-updates',
-                bootstrap_servers=['kafka-cluster:9092'],
-                value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-                group_id='indicators-service',
-                auto_offset_reset='latest',
-                enable_auto_commit=True
+            # Démarrer le consumer Redis Streams en arrière-plan
+            asyncio.create_task(
+                self._consume_ticks_stream()
             )
-            
-            # Démarrer le consumer en arrière-plan
-            asyncio.create_task(self._consume_market_data())
             
             self.is_running = True
             self.logger.info("Service d'indicateurs initialisé")
@@ -156,27 +153,23 @@ class IndicatorsService:
             self.logger.error(f"Erreur initialisation service: {e}")
             raise
     
-    async def _consume_market_data(self):
-        """Consomme les données de marché depuis Kafka"""
-        try:
-            for message in self.kafka_consumer:
-                if not self.is_running:
-                    break
-                
-                try:
-                    data = message.value
-                    symbol = data.get('symbol')
-                    market_data = data.get('data', [])
-                    
-                    if symbol and market_data:
-                        # Calculer les indicateurs en arrière-plan
-                        asyncio.create_task(self._process_market_data_async(symbol, market_data))
-                
-                except Exception as e:
-                    self.logger.error(f"Erreur traitement message Kafka: {e}")
-        
-        except Exception as e:
-            self.logger.error(f"Erreur consumer Kafka: {e}")
+    async def _consume_ticks_stream(self):
+        """Consomme les ticks depuis Redis Streams et déclenche le calcul d'indicateurs."""
+        if not self.event_bus:
+            return
+        async def handler(payload: Dict[str, Any]):
+            symbol = payload.get("symbol")
+            market_data = payload.get("data", [])
+            if symbol and market_data:
+                asyncio.create_task(self._process_market_data_async(symbol, market_data))
+        await self.event_bus.consume(
+            stream_name="market_data.ticks",
+            group_name="indicators-service",
+            consumer_name="indicators-worker",
+            handler=handler,
+            block_ms=2000,
+            batch_size=32,
+        )
     
     async def _process_market_data_async(self, symbol: str, market_data: List[Dict[str, Any]]):
         """Traite les données de marché de manière asynchrone"""
@@ -359,10 +352,10 @@ class IndicatorsService:
             self.logger.error(f"Erreur cache indicateurs: {e}")
     
     async def _publish_indicators(self, symbol: str, indicators_data: Dict[str, Any]):
-        """Publie les indicateurs sur Kafka"""
+        """Publie les indicateurs sur Kafka et Redis Streams"""
         try:
             if not self.kafka_producer:
-                return
+                pass
             
             message = {
                 "symbol": symbol,
@@ -371,13 +364,16 @@ class IndicatorsService:
                 "service": "indicators"
             }
             
-            self.kafka_producer.send(
-                'indicators-updates',
-                value=message,
-                key=symbol.encode('utf-8')
-            )
-            
-            self.metrics["kafka_messages_sent"] += 1
+            if self.kafka_producer:
+                self.kafka_producer.send(
+                    'indicators-updates',
+                    value=message,
+                    key=symbol.encode('utf-8')
+                )
+                self.metrics["kafka_messages_sent"] += 1
+
+            if self.event_bus:
+                await self.event_bus.publish("indicators.computed", message)
         
         except Exception as e:
             self.logger.error(f"Erreur publication Kafka: {e}")
@@ -438,6 +434,11 @@ class IndicatorsService:
             
             if self.kafka_consumer:
                 self.kafka_consumer.close()
+
+            if self.event_bus:
+                self.event_bus.stop()
+                await self.event_bus.close()
+                self.event_bus = None
             
             self.process_pool.shutdown(wait=True)
             self.thread_pool.shutdown(wait=True)

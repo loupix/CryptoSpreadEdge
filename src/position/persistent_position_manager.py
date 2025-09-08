@@ -12,8 +12,8 @@ import pandas as pd
 
 from src.database import get_database_manager, PositionRepository, TradeRepository
 from src.database.models import PositionStatus, PositionType, OrderSide
-from ..prediction.signal_generator import TradingSignal, SignalType
-from ..backtesting.backtesting_engine import Position as BacktestPosition, Trade as BacktestTrade
+from src.prediction.signal_generator import TradingSignal, SignalType
+from src.backtesting.backtesting_engine import Position as BacktestPosition, Trade as BacktestTrade
 
 
 class RiskLevel(Enum):

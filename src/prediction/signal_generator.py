@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from enum import Enum
+from src.utils.messaging.redis_bus import RedisEventBus
 
 from ..indicators.base_indicator import (
     IndicatorValue, IndicatorSignal, IndicatorType, 
@@ -445,6 +446,7 @@ class SignalGenerator(IndicatorObserver):
         self.strategies = []
         self.signals_history = []
         self.current_signals = {}
+        self._event_bus: RedisEventBus | None = None
         
     def add_strategy(self, strategy: SignalStrategy):
         """Ajoute une stratégie"""
@@ -480,6 +482,8 @@ class SignalGenerator(IndicatorObserver):
         # Mettre à jour l'historique
         self.signals_history.extend(combined_signals)
         self.current_signals[symbol] = combined_signals
+        # Publier les signaux générés
+        self._publish_signals_sync(symbol, combined_signals)
         
         return combined_signals
     
@@ -593,6 +597,45 @@ class SignalGenerator(IndicatorObserver):
             'average_confidence': avg_confidence,
             'strategies_count': len(self.strategies)
         }
+
+    def _publish_signals_sync(self, symbol: str, signals: List[TradingSignal]) -> None:
+        try:
+            import asyncio
+            loop = None
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                pass
+            if loop and loop.is_running() and signals:
+                loop.create_task(self._publish_signals_async(symbol, signals))
+        except Exception:
+            pass
+
+    async def _publish_signals_async(self, symbol: str, signals: List[TradingSignal]) -> None:
+        try:
+            if self._event_bus is None:
+                self._event_bus = RedisEventBus()
+                await self._event_bus.connect()
+            payload = {
+                'symbol': symbol,
+                'signals': [
+                    {
+                        'type': s.signal_type.value,
+                        'strength': s.strength,
+                        'confidence': s.confidence,
+                        'timestamp': s.timestamp.isoformat(),
+                        'price': s.price,
+                        'stop_loss': s.stop_loss,
+                        'take_profit': s.take_profit,
+                        'metadata': s.metadata or {},
+                    }
+                    for s in signals
+                ],
+                'timestamp': datetime.utcnow().isoformat(),
+            }
+            await self._event_bus.publish('signals.generated', payload)
+        except Exception:
+            pass
 
 
 # Factory pour les stratégies (Factory Pattern)

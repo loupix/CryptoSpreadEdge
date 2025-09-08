@@ -21,6 +21,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 import hashlib
 import random
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 class ServiceHealth(BaseModel):
@@ -183,6 +184,7 @@ class APIGateway:
         self.kafka_producer = None
         self.load_balancer = LoadBalancer()
         self.is_running = False
+        self.event_bus: Optional[RedisEventBus] = None
         
         # Métriques
         self.metrics = {
@@ -215,6 +217,9 @@ class APIGateway:
                 acks='all',
                 retries=3
             )
+            # Event bus
+            self.event_bus = RedisEventBus()
+            await self.event_bus.connect()
             
             # Démarrer le monitoring de santé
             asyncio.create_task(self.load_balancer.start_health_monitoring())
@@ -266,6 +271,15 @@ class APIGateway:
                 
                 # Mettre à jour les métriques
                 self._update_metrics(service_name, response.status_code, time.time() - start_time)
+                # Publier événement requête
+                await self._publish_api_event("api.requests", {
+                    "service": service_name,
+                    "path": path,
+                    "method": method,
+                    "status": response.status_code,
+                    "duration_ms": int((time.time() - start_time) * 1000),
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
                 
                 return JSONResponse(
                     content=response_data,
@@ -275,11 +289,27 @@ class APIGateway:
         
         except httpx.TimeoutException:
             self._update_metrics(service_name, 504, time.time() - start_time)
+            await self._publish_api_event("api.errors", {
+                "service": service_name,
+                "path": path,
+                "method": method,
+                "error": "timeout",
+                "duration_ms": int((time.time() - start_time) * 1000),
+                "timestamp": datetime.utcnow().isoformat(),
+            })
             raise HTTPException(status_code=504, detail="Timeout de la requête")
         
         except Exception as e:
             self._update_metrics(service_name, 500, time.time() - start_time)
             self.logger.error(f"Erreur proxy {service_name}: {e}")
+            await self._publish_api_event("api.errors", {
+                "service": service_name,
+                "path": path,
+                "method": method,
+                "error": str(e),
+                "duration_ms": int((time.time() - start_time) * 1000),
+                "timestamp": datetime.utcnow().isoformat(),
+            })
             raise HTTPException(status_code=500, detail=str(e))
     
     def _generate_cache_key(self, service_name: str, path: str, method: str, body: Optional[bytes]) -> str:
@@ -344,6 +374,13 @@ class APIGateway:
             self.metrics["failed_requests"] / self.metrics["total_requests"] * 100
         )
     
+    async def _publish_api_event(self, stream: str, message: Dict[str, Any]):
+        try:
+            if self.event_bus:
+                await self.event_bus.publish(stream, message)
+        except Exception:
+            pass
+    
     async def get_health(self) -> GatewayHealth:
         """Retourne l'état de santé du gateway"""
         try:
@@ -404,6 +441,11 @@ class APIGateway:
             
             if self.kafka_producer:
                 self.kafka_producer.close()
+            
+            if self.event_bus:
+                self.event_bus.stop()
+                await self.event_bus.close()
+                self.event_bus = None
             
             self.logger.info("API Gateway arrêté")
         

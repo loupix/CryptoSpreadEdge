@@ -19,6 +19,7 @@ from .extended_repositories import (
     AlertRepository, NotificationRepository, RiskEventRepository,
     SystemMetricRepository, TradingSessionRepository
 )
+from ..utils.messaging.redis_bus import RedisEventBus
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +89,15 @@ class MonitoringSystem:
         self.notification_configs: Dict[str, NotificationConfig] = {}
         self.metric_handlers: Dict[str, Callable] = {}
         self.is_running = False
+        self._event_bus: Optional[RedisEventBus] = None
         
         self._load_default_rules()
         self._load_default_notifications()
+    
+    async def _ensure_bus(self):
+        if self._event_bus is None:
+            self._event_bus = RedisEventBus()
+            await self._event_bus.connect()
     
     def _load_default_rules(self):
         """Charge les règles d'alerte par défaut"""
@@ -446,6 +453,22 @@ class MonitoringSystem:
             # Créer les notifications
             await self._create_notifications(alert, rule)
             
+            # Publier l'alerte sur Redis Streams
+            try:
+                await self._ensure_bus()
+                if self._event_bus is not None:
+                    await self._event_bus.publish("alerts.general", {
+                        "id": str(alert.id),
+                        "name": rule.name,
+                        "type": rule.alert_type.value,
+                        "severity": rule.severity.value,
+                        "symbol": rule.symbol,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "metadata": rule.metadata or {},
+                    })
+            except Exception:
+                pass
+
             logger.warning(f"Alerte déclenchée: {rule.name}")
             
         except Exception as e:

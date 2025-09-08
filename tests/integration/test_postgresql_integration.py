@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from database import get_database_manager, OrderRepository, PositionRepository, TradeRepository
 from database.models import OrderStatus, OrderSide, OrderType, PositionStatus, PositionType
-from core.order_management.persistent_order_manager import PersistentOrderManager, OrderManagerConfig
-from position.persistent_position_manager import PersistentPositionManager
+from src.core.order_management.persistent_order_manager import PersistentOrderManager, OrderManagerConfig
+from src.position.persistent_position_manager import PersistentPositionManager
 
 
 @pytest.fixture

@@ -26,6 +26,12 @@ import joblib
 
 from ..prediction.ml_predictor import MLPredictor
 from ..prediction.signal_generator import SignalGenerator, MLPredictionStrategy
+from ..monitoring.market_abuse.opportunities import Opportunity
+from ..monitoring.market_abuse.opportunity_sinks import DatabaseOpportunitySink
+from src.monitoring.market_abuse.redis_sinks import RedisAlertSink, RedisOpportunitySink
+from ..database.database import init_database
+from ..monitoring.market_abuse.stream_monitor import MarketAbuseStreamMonitor
+from ..monitoring.market_abuse.calibration import AutoThresholdCalibrator
 
 
 class PredictionRequest(BaseModel):
@@ -73,6 +79,15 @@ class HealthResponse(BaseModel):
     performance: Dict[str, Any]
 
 
+class OpportunityIn(BaseModel):
+    """Payload d'opportunité à ingérer"""
+    symbol: str
+    kind: str
+    confidence: float
+    rationale: Optional[str] = None
+    timestamp: Optional[datetime] = None
+
+
 class PredictionService:
     """Service de prédiction ML distribué"""
     
@@ -103,6 +118,8 @@ class PredictionService:
             "error_count": 0,
             "models_loaded": 0
         }
+        # Opportunités -> stratégie: monitors d'abus avec auto-calibration
+        self.market_abuse_monitors = {}
     
     async def initialize(self):
         """Initialise le service"""
@@ -137,6 +154,21 @@ class PredictionService:
             # Initialiser le générateur de signaux
             self.signal_generator = SignalGenerator("PredictionSignalGenerator")
             self.signal_generator.add_strategy(MLPredictionStrategy("MLPrediction"))
+            # Préparer des monitors avec auto-calibration
+            calib = AutoThresholdCalibrator()
+            for sym in ["BTC/USDT", "ETH/USDT"]:
+                self.market_abuse_monitors[sym] = MarketAbuseStreamMonitor(
+                    symbol=sym,
+                    symbol_thresholds={sym: 0.5},
+                    auto_calibrator=calib,
+                    on_opportunities=self._on_opportunities_to_strategy,
+                )
+                # Ajouter sinks Redis pour alertes et opportunités
+                try:
+                    self.market_abuse_monitors[sym].sinks.append(RedisAlertSink())
+                    self.market_abuse_monitors[sym].opportunity_sinks.append(RedisOpportunitySink())
+                except Exception:
+                    pass
             
             # Charger les modèles pré-entraînés
             await self._load_pretrained_models()
@@ -490,11 +522,32 @@ class PredictionService:
                 self.kafka_consumer.close()
             
             self.process_pool.shutdown(wait=True)
+            self.market_abuse_monitors.clear()
             
             self.logger.info("Service de prédiction ML arrêté")
         
         except Exception as e:
             self.logger.error(f"Erreur arrêt service: {e}")
+
+    def _on_opportunities_to_strategy(self, opps):
+        try:
+            if not self.kafka_producer:
+                return
+            for o in opps:
+                self.kafka_producer.send(
+                    'strategy-signals',
+                    {
+                        "type": "opportunity",
+                        "symbol": o.symbol,
+                        "kind": o.kind,
+                        "confidence": o.confidence,
+                        "rationale": o.rationale,
+                        "timestamp": o.timestamp.isoformat(),
+                    },
+                )
+                self.metrics["kafka_messages_sent"] += 1
+        except Exception as e:
+            self.logger.warning(f"Émission de signaux stratégie échouée: {e}")
 
 
 # Instance globale du service
@@ -578,6 +631,44 @@ async def get_cache_stats():
         return {"error": "Redis non connecté"}
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.post("/opportunities/ingest")
+async def ingest_opportunity(opp: OpportunityIn, background_tasks: BackgroundTasks):
+    """Ingestion d'une opportunité: persiste en DB et notifie la stratégie via Kafka"""
+    try:
+        # Persistance DB (async)
+        async def persist():
+            await init_database()
+            sink = DatabaseOpportunitySink()
+            o = Opportunity(
+                timestamp=opp.timestamp or datetime.utcnow(),
+                symbol=opp.symbol,
+                kind=opp.kind,
+                confidence=opp.confidence,
+                rationale=opp.rationale or "",
+            )
+            await sink.emit_async([o])
+
+        background_tasks.add_task(persist)
+
+        # Notifier via Kafka une stratégie (léger)
+        if prediction_service.kafka_producer:
+            prediction_service.kafka_producer.send(
+                'opportunities',
+                {
+                    "symbol": opp.symbol,
+                    "kind": opp.kind,
+                    "confidence": opp.confidence,
+                    "rationale": opp.rationale or "",
+                    "timestamp": (opp.timestamp or datetime.utcnow()).isoformat(),
+                },
+            )
+            prediction_service.metrics["kafka_messages_sent"] += 1
+
+        return {"status": "accepted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

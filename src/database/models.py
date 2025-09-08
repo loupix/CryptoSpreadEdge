@@ -240,3 +240,44 @@ class AuditLog(Base):
         Index('idx_audit_timestamp', 'timestamp'),
         Index('idx_audit_action', 'action'),
     )
+
+
+class MarketAbuseAlertRecord(Base):
+    """
+    Table de persistance des alertes d'abus de marché
+    """
+    __tablename__ = 'market_abuse_alerts'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    symbol = Column(String(32), nullable=False, index=True)
+    alert_type = Column(String(32), nullable=False, index=True)
+    severity = Column(Float, nullable=False)
+    message = Column(Text, nullable=False)
+    detector = Column(String(64), nullable=True)
+    exchange = Column(String(50), nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    meta_data = Column(JSONB, nullable=True)
+
+    __table_args__ = (
+        Index('idx_ma_alerts_symbol_time', 'symbol', 'timestamp'),
+        Index('idx_ma_alerts_type_time', 'alert_type', 'timestamp'),
+        Index('idx_ma_alerts_exchange', 'exchange'),
+    )
+
+
+class OpportunityRecord(Base):
+    """Persistance des opportunités générées"""
+    __tablename__ = 'opportunities'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    symbol = Column(String(32), nullable=False, index=True)
+    kind = Column(String(64), nullable=False, index=True)
+    confidence = Column(Float, nullable=False)
+    rationale = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    meta_data = Column(JSONB, nullable=True)
+
+    __table_args__ = (
+        Index('idx_opps_symbol_created', 'symbol', 'created_at'),
+        Index('idx_opps_kind', 'kind'),
+    )

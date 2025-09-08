@@ -10,11 +10,12 @@ from dataclasses import dataclass, field
 import statistics
 import time
 
-from connectors.common.market_data_types import MarketData, Order, OrderSide, OrderType
-from connectors.connector_factory import connector_factory
-from data_sources.data_aggregator import data_aggregator
+from src.connectors.common.market_data_types import MarketData, Order, OrderSide, OrderType
+from src.connectors.connector_factory import connector_factory
+from src.data_sources.data_aggregator import data_aggregator
 from config.arbitrage_config import DATA_SOURCES
 from monitoring.data_source_monitor import data_source_monitor
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 @dataclass
@@ -79,6 +80,7 @@ class ArbitrageEngine:
         self.is_running = False
         self.opportunities: List[ArbitrageOpportunity] = []
         self.executions: List[ArbitrageExecution] = []
+        self._event_bus: RedisEventBus | None = None
         
         # Configuration
         self.min_spread_percentage = 0.001  # 0.1% minimum
@@ -107,6 +109,8 @@ class ArbitrageEngine:
         try:
             self.logger.info("Démarrage du moteur d'arbitrage")
             self.is_running = True
+            self._event_bus = RedisEventBus()
+            await self._event_bus.connect()
             
             # Initialiser les composants
             await self._initialize_components()
@@ -129,6 +133,10 @@ class ArbitrageEngine:
         """Arrête le moteur d'arbitrage"""
         self.logger.info("Arrêt du moteur d'arbitrage")
         self.is_running = False
+        if self._event_bus:
+            self._event_bus.stop()
+            await self._event_bus.close()
+            self._event_bus = None
         
         # Annuler les ordres en cours
         await self._cancel_pending_orders()
@@ -186,6 +194,8 @@ class ArbitrageEngine:
                 
                 # Ajouter aux opportunités détectées
                 self.opportunities.extend(filtered_opportunities)
+                # Publier les opportunités
+                await self._publish_opportunities(filtered_opportunities)
                 
                 # Garder seulement les opportunités récentes (dernières 5 minutes)
                 cutoff_time = datetime.utcnow() - timedelta(minutes=5)
@@ -511,6 +521,7 @@ class ArbitrageEngine:
                     if execution:
                         self.executions.append(execution)
                         self.stats["opportunities_executed"] += 1
+                        await self._publish_execution(execution)
                         
                         if execution.status == "completed":
                             self.stats["total_profit"] += execution.net_profit
@@ -594,6 +605,45 @@ class ArbitrageEngine:
             key=lambda x: x.timestamp,
             reverse=True
         )[:limit]
+
+    async def _publish_opportunities(self, opps: List[ArbitrageOpportunity]) -> None:
+        try:
+            if not opps or not self._event_bus:
+                return
+            for o in opps:
+                payload = {
+                    'symbol': o.symbol,
+                    'buy_exchange': o.buy_exchange,
+                    'sell_exchange': o.sell_exchange,
+                    'buy_price': o.buy_price,
+                    'sell_price': o.sell_price,
+                    'spread': o.spread,
+                    'spread_pct': o.spread_percentage,
+                    'volume': o.volume_available,
+                    'confidence': o.confidence,
+                    'risk_score': o.risk_score,
+                    'timestamp': o.timestamp.isoformat(),
+                }
+                await self._event_bus.publish('arbitrage.opportunities', payload)
+        except Exception:
+            pass
+
+    async def _publish_execution(self, exe: ArbitrageExecution) -> None:
+        try:
+            if not self._event_bus:
+                return
+            payload = {
+                'symbol': exe.opportunity.symbol,
+                'status': exe.status,
+                'actual_profit': exe.actual_profit,
+                'execution_time': exe.execution_time,
+                'fees': exe.fees_paid,
+                'net_profit': exe.net_profit,
+                'timestamp': exe.timestamp.isoformat(),
+            }
+            await self._event_bus.publish('arbitrage.executions', payload)
+        except Exception:
+            pass
 
 
 # Instance globale du moteur d'arbitrage
