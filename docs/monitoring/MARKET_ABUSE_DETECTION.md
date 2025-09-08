@@ -17,11 +17,16 @@ python scripts/tools/market_abuse_cli.py --csv path.csv --symbol BTC/USDT
 Intégration en code:
 ```python
 from src.monitoring.market_abuse import MarketAbuseStreamMonitor, TradeEvent
-monitor = MarketAbuseStreamMonitor(symbol="BTC/USDT")
+monitor = MarketAbuseStreamMonitor(symbol="BTC/USDT", symbol_thresholds={"BTC/USDT": 0.6})
 # feed trades/orderbooks
 ```
 
 Notes:
 - Heuristiques simples, seuils à calibrer par marché.
 - Pour wash trading, `trader_id` doit être fourni pour être utile.
+
+Persistance/Export:
+- Fichier: activé par défaut `logs/market_abuse_alerts.jsonl`
+- Prometheus: compteurs et gauge de sévérité exposés; lancer un serveur d'export si nécessaire
+- Base de données: utiliser `DatabaseAlertSink.emit_async(alerts)` pour persister (nécessite DB init)
 

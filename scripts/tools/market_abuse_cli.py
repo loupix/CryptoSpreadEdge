@@ -3,6 +3,7 @@ import csv
 from datetime import datetime
 
 from src.monitoring.market_abuse.stream_monitor import MarketAbuseStreamMonitor
+from src.monitoring.market_abuse.sinks import FileAlertSink, PrometheusAlertSink
 from src.monitoring.market_abuse.types import TradeEvent
 
 
@@ -28,7 +29,7 @@ def main():
     parser.add_argument("--side-col", default="side")
     args = parser.parse_args()
 
-    monitor = MarketAbuseStreamMonitor(symbol=args.symbol)
+    monitor = MarketAbuseStreamMonitor(symbol=args.symbol, sinks=[FileAlertSink(), PrometheusAlertSink()])
     with open(args.csv, "r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
