@@ -388,6 +388,9 @@ class MarketAbuseAlertRepository(BaseRepository):
     """
 
     async def create(self, alert_data: Dict[str, Any]) -> MarketAbuseAlertRecord:
+        # Harmoniser la clé meta_data
+        if "metadata" in alert_data and "meta_data" not in alert_data:
+            alert_data["meta_data"] = alert_data.pop("metadata")
         record = MarketAbuseAlertRecord(**alert_data)
         self.session.add(record)
         await self.session.flush()

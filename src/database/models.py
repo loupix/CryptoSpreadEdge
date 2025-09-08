@@ -256,7 +256,7 @@ class MarketAbuseAlertRecord(Base):
     detector = Column(String(64), nullable=True)
     exchange = Column(String(50), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    metadata = Column(JSONB, nullable=True)
+    meta_data = Column(JSONB, nullable=True)
 
     __table_args__ = (
         Index('idx_ma_alerts_symbol_time', 'symbol', 'timestamp'),

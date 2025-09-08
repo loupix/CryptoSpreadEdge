@@ -26,7 +26,8 @@ class MarketAbuseStreamMonitor:
         self.symbol = symbol
         lookback = timedelta(minutes=lookback_minutes)
         self.detectors = []
-        self.sinks = sinks or [FileAlertSink(), PrometheusAlertSink()]
+        # Par défaut, écrire en fichier uniquement. Le sink Prometheus doit être injecté par l'appelant.
+        self.sinks = sinks or [FileAlertSink()]
         self.symbol_thresholds = symbol_thresholds or {}
         if enable_pump_dump:
             self.detectors.append(PumpAndDumpDetector(symbol=symbol, lookback=lookback))

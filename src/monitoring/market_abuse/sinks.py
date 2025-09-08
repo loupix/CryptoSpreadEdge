@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Optional, Dict
 
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter, Gauge, CollectorRegistry
 
 from src.database.database import get_database_manager
 from src.database.repositories import MarketAbuseAlertRepository
@@ -54,22 +54,26 @@ class DatabaseAlertSink(AlertSink):
                         "detector": None,
                         "exchange": None,
                         "timestamp": a.timestamp,
-                        "metadata": a.metadata or {},
+                        "meta_data": a.metadata or {},
                     }
                 )
 
 
 class PrometheusAlertSink(AlertSink):
-    def __init__(self) -> None:
+    def __init__(self, registry: CollectorRegistry | None = None) -> None:
+        # Par défaut, utiliser un registre privé pour éviter les collisions en tests
+        self.registry = registry or CollectorRegistry()
         self.counter = Counter(
             "market_abuse_alert_total",
             "Nombre d'alertes d'abus de marché",
             ["symbol", "type"],
+            registry=self.registry,
         )
         self.severity_gauge = Gauge(
             "market_abuse_alert_severity",
             "Sévérité de la dernière alerte",
             ["symbol", "type"],
+            registry=self.registry,
         )
 
     def emit(self, alerts: Iterable[MarketAbuseAlert]) -> None:
