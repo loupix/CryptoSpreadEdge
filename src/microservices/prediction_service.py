@@ -29,6 +29,8 @@ from ..prediction.signal_generator import SignalGenerator, MLPredictionStrategy
 from ..monitoring.market_abuse.opportunities import Opportunity
 from ..monitoring.market_abuse.opportunity_sinks import DatabaseOpportunitySink
 from ..database.database import init_database
+from ..monitoring.market_abuse.stream_monitor import MarketAbuseStreamMonitor
+from ..monitoring.market_abuse.calibration import AutoThresholdCalibrator
 
 
 class PredictionRequest(BaseModel):
@@ -115,6 +117,8 @@ class PredictionService:
             "error_count": 0,
             "models_loaded": 0
         }
+        # Opportunités -> stratégie: monitors d'abus avec auto-calibration
+        self.market_abuse_monitors = {}
     
     async def initialize(self):
         """Initialise le service"""
@@ -149,6 +153,15 @@ class PredictionService:
             # Initialiser le générateur de signaux
             self.signal_generator = SignalGenerator("PredictionSignalGenerator")
             self.signal_generator.add_strategy(MLPredictionStrategy("MLPrediction"))
+            # Préparer des monitors avec auto-calibration
+            calib = AutoThresholdCalibrator()
+            for sym in ["BTC/USDT", "ETH/USDT"]:
+                self.market_abuse_monitors[sym] = MarketAbuseStreamMonitor(
+                    symbol=sym,
+                    symbol_thresholds={sym: 0.5},
+                    auto_calibrator=calib,
+                    on_opportunities=self._on_opportunities_to_strategy,
+                )
             
             # Charger les modèles pré-entraînés
             await self._load_pretrained_models()
@@ -502,11 +515,32 @@ class PredictionService:
                 self.kafka_consumer.close()
             
             self.process_pool.shutdown(wait=True)
+            self.market_abuse_monitors.clear()
             
             self.logger.info("Service de prédiction ML arrêté")
         
         except Exception as e:
             self.logger.error(f"Erreur arrêt service: {e}")
+
+    def _on_opportunities_to_strategy(self, opps):
+        try:
+            if not self.kafka_producer:
+                return
+            for o in opps:
+                self.kafka_producer.send(
+                    'strategy-signals',
+                    {
+                        "type": "opportunity",
+                        "symbol": o.symbol,
+                        "kind": o.kind,
+                        "confidence": o.confidence,
+                        "rationale": o.rationale,
+                        "timestamp": o.timestamp.isoformat(),
+                    },
+                )
+                self.metrics["kafka_messages_sent"] += 1
+        except Exception as e:
+            self.logger.warning(f"Émission de signaux stratégie échouée: {e}")
 
 
 # Instance globale du service

@@ -11,6 +11,7 @@ from .types import MarketAbuseAlert, OrderBookSnapshot, TradeEvent
 from .sinks import AlertSink, FileAlertSink, PrometheusAlertSink
 from .opportunities import opportunities_from_alert, Opportunity
 from .opportunity_sinks import OpportunitySink, FileOpportunitySink
+from .calibration import AutoThresholdCalibrator
 
 
 class MarketAbuseStreamMonitor:
@@ -25,6 +26,7 @@ class MarketAbuseStreamMonitor:
         sinks: Optional[List[AlertSink]] = None,
         symbol_thresholds: Optional[Dict[str, float]] = None,
         on_opportunities: Optional[callable] = None,
+        auto_calibrator: Optional[AutoThresholdCalibrator] = None,
     ) -> None:
         self.symbol = symbol
         lookback = timedelta(minutes=lookback_minutes)
@@ -34,6 +36,7 @@ class MarketAbuseStreamMonitor:
         self.symbol_thresholds = symbol_thresholds or {}
         self.on_opportunities = on_opportunities
         self.opportunity_sinks: List[OpportunitySink] = [FileOpportunitySink()]
+        self.auto_calibrator = auto_calibrator
         if enable_pump_dump:
             self.detectors.append(PumpAndDumpDetector(symbol=symbol, lookback=lookback))
         if enable_spoofing:
@@ -50,6 +53,7 @@ class MarketAbuseStreamMonitor:
         alerts = self._apply_symbol_thresholds(alerts)
         self._emit(alerts)
         self._emit_opportunities(alerts)
+        self._record_for_calibration(len(alerts), trade.timestamp)
         return alerts
 
     def on_orderbook(self, ob: OrderBookSnapshot) -> List[MarketAbuseAlert]:
@@ -59,6 +63,7 @@ class MarketAbuseStreamMonitor:
         alerts = self._apply_symbol_thresholds(alerts)
         self._emit(alerts)
         self._emit_opportunities(alerts)
+        self._record_for_calibration(len(alerts), ob.timestamp)
         return alerts
 
     def run_offline_trades(self, trades: Iterable[TradeEvent]) -> List[MarketAbuseAlert]:
@@ -102,4 +107,11 @@ class MarketAbuseStreamMonitor:
                 sink.emit(opps)  # type: ignore[attr-defined]
             except AttributeError:
                 pass
+
+    def _record_for_calibration(self, alert_count: int, ts) -> None:
+        if self.auto_calibrator is None or alert_count <= 0:
+            return
+        self.auto_calibrator.record_alerts(self.symbol, alert_count, ts)
+        # Mettre à jour le seuil courant pour le symbole
+        self.symbol_thresholds[self.symbol] = self.auto_calibrator.get_threshold(self.symbol)
 
