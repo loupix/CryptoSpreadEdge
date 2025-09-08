@@ -27,17 +27,17 @@ import {
 } from '@mui/material';
 import {
   TrendingUp,
-  TrendingDown,
+  // TrendingDown,
   CompareArrows,
   Speed,
   AttachMoney,
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { apiClient } from '../services/api';
+// import { apiClient } from '../services/api';
 import { wsService } from '../services/websocket';
 
 const SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL'];
-const EXCHANGES = ['binance', 'okx', 'bybit', 'gateio', 'kraken'];
+// const EXCHANGES = ['binance', 'okx', 'bybit', 'gateio', 'kraken'];
 
 interface ArbitrageOpportunity {
   symbol: string;

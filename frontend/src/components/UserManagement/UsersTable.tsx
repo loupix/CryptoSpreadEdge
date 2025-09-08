@@ -14,7 +14,7 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  TextField,
+  // TextField,
   Select,
   MenuItem,
   FormControl,
@@ -38,13 +38,13 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   PersonAdd as PersonAddIcon,
-  Security as SecurityIcon,
+  // Security as SecurityIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUsers, useDeleteUser } from '../../hooks/useDatabaseApi';
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
-import { User } from '../../services/databaseApi';
+import { User } from '../../types';
 import Sparkline from '../Charts/Sparkline';
 
 interface UsersTableProps {
@@ -195,23 +195,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
     }
   };
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" p={3}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ mb: 2 }}>
-        Erreur lors du chargement des utilisateurs: {error}
-      </Alert>
-    );
-  }
-
-  // Simple virtualization for table rows
+  // Simple virtualization for table rows (define before early returns)
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [virtual, setVirtual] = useState({ start: 0, end: 30, rowHeight: 48 });
   const totalRows = users.length;
@@ -234,6 +218,23 @@ const UsersTable: React.FC<UsersTableProps> = ({
   }, [onScroll]);
 
   const visibleUsers = users.slice(virtual.start, virtual.end);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" p={3}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mb: 2 }}>
+        Erreur lors du chargement des utilisateurs: {error}
+      </Alert>
+    );
+  }
+
 
   return (
     <Box>
@@ -307,7 +308,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
                 <TableCell colSpan={9} sx={{ height: virtual.start * virtual.rowHeight, p: 0 }} />
               </TableRow>
             )}
-            {visibleUsers.map((user) => (
+            {visibleUsers.map((user: User) => (
               <TableRow key={user.id} hover>
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
@@ -503,7 +504,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
                     Fuseau horaire
                   </Typography>
                   <Typography variant="body2">
-                    {selectedUser.timezone}
+                    {selectedUser.timezone || '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -511,7 +512,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
                     Langue
                   </Typography>
                   <Typography variant="body2">
-                    {selectedUser.language}
+                    {selectedUser.language || '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -568,7 +569,9 @@ const UsersTable: React.FC<UsersTableProps> = ({
                     Créé le
                   </Typography>
                   <Typography variant="body2">
-                    {format(new Date(selectedUser.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                    {selectedUser.created_at
+                      ? format(new Date(selectedUser.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -576,7 +579,9 @@ const UsersTable: React.FC<UsersTableProps> = ({
                     Modifié le
                   </Typography>
                   <Typography variant="body2">
-                    {format(new Date(selectedUser.updated_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                    {selectedUser.updated_at
+                      ? format(new Date(selectedUser.updated_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                      : '-'}
                   </Typography>
                 </Box>
               </Box>

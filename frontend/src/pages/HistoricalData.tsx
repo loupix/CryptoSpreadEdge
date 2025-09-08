@@ -17,27 +17,27 @@ import {
   Alert,
   CircularProgress,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  // Dialog,
+  // DialogTitle,
+  // DialogContent,
+  // DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  InputAdornment,
+  // FormControl,
+  // InputLabel,
+  // Select,
+  // MenuItem,
+  // InputAdornment,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
+  // TrendingDown as TrendingDownIcon,
   AccountBalance as AccountBalanceIcon,
   Assessment as AssessmentIcon,
   History as HistoryIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+// import { fr } from 'date-fns/locale';
 import OrdersTable from '../components/HistoricalData/OrdersTable';
 import PositionsTable from '../components/HistoricalData/PositionsTable';
 import { 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -29,7 +29,8 @@ import {
 import { ResponsiveContainer, ReferenceLine } from 'recharts';
 import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
 import Sparkline from '../components/Charts/Sparkline';
-import { apiClient, PredictionResponse, MarketDataResponse } from '../services/api';
+import { apiClient } from '../services/api';
+import { PredictionResponse, MarketDataResponse } from '../types/api';
 import { wsService } from '../services/websocket';
 
 const SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL'];
@@ -73,16 +74,6 @@ const Predictions: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadAvailableModels();
-    loadPredictions();
-    connectWebSocket();
-    
-    return () => {
-      wsService.disconnect();
-    };
-  }, [selectedSymbol, selectedModel, predictionHorizon]);
-
   const loadAvailableModels = async () => {
     try {
       const response = await apiClient.getAvailableModels();
@@ -92,7 +83,7 @@ const Predictions: React.FC = () => {
     }
   };
 
-  const loadPredictions = async () => {
+  const loadPredictions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -117,9 +108,9 @@ const Predictions: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSymbol, selectedModel, predictionHorizon]);
 
-  const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
     wsService.connect();
     
     wsService.subscribeToPredictions((data) => {
@@ -127,7 +118,17 @@ const Predictions: React.FC = () => {
         setPredictions(data);
       }
     });
-  };
+  }, [selectedSymbol]);
+
+  useEffect(() => {
+    loadAvailableModels();
+    loadPredictions();
+    connectWebSocket();
+    
+    return () => {
+      wsService.disconnect();
+    };
+  }, [selectedSymbol, selectedModel, predictionHorizon, connectWebSocket, loadPredictions]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -205,7 +206,7 @@ const Predictions: React.FC = () => {
                   value={selectedSymbol}
                   onChange={(e) => setSelectedSymbol(e.target.value)}
                 >
-                  {SYMBOLS.map((symbol) => (
+                  {SYMBOLS.map((symbol: string) => (
                     <MenuItem key={symbol} value={symbol}>
                       {symbol}
                     </MenuItem>
@@ -221,7 +222,7 @@ const Predictions: React.FC = () => {
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
                 >
-                  {MODEL_TYPES.map((model) => (
+                  {MODEL_TYPES.map((model: string) => (
                     <MenuItem key={model} value={model}>
                       {model}
                     </MenuItem>
@@ -343,7 +344,7 @@ const Predictions: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {predictions.predictions.map((pred, index) => (
+                    {predictions.predictions.map((pred: any, index: number) => (
                       <TableRow key={index}>
                         <TableCell>
                           <Typography variant="subtitle2" fontWeight="bold">

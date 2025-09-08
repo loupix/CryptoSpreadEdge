@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, Typography, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 
-interface LatencyItem { name: string; status: string; response_time: number }
+import { LatencyItem } from '../../types/domain';
 
 interface ServiceLatencyTableProps { items: LatencyItem[] }
 
@@ -19,7 +19,7 @@ const ServiceLatencyTable: React.FC<ServiceLatencyTableProps> = ({ items }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((it) => (
+            {items.map((it: LatencyItem) => (
               <TableRow key={it.name}>
                 <TableCell>{it.name}</TableCell>
                 <TableCell>{it.status}</TableCell>

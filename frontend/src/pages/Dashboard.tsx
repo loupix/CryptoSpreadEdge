@@ -6,7 +6,7 @@ import {
   Typography,
   Box,
   Chip,
-  LinearProgress,
+  // LinearProgress,
   Alert,
 } from '@mui/material';
 import Skeleton from '@mui/material/Skeleton';
@@ -17,12 +17,13 @@ import {
   Psychology,
   CompareArrows,
 } from '@mui/icons-material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+// import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
 import HeatmapChart from '../components/Charts/HeatmapChart';
 import AlertsTicker from '../components/Dashboard/AlertsTicker';
 import NewsFeed from '../components/Dashboard/NewsFeed';
-import { apiClient, MarketDataResponse, HealthResponse } from '../services/api';
+import { apiClient } from '../services/api';
+import { MarketDataResponse, HealthResponse } from '../types/api';
 import { useAlerts } from '../hooks/useDatabaseApi';
 import { wsService } from '../services/websocket';
 
@@ -282,7 +283,7 @@ const Dashboard: React.FC = () => {
       {/* Graphique des prix */}
       <TimeSeriesChart
         title="Prix des Cryptomonnaies (24h)"
-        data={(marketData[0]?.data || []).map(p => ({ timestamp: p.timestamp, value: p.close }))}
+        data={(marketData[0]?.data || []).map((p: MarketDataResponse['data'][number]) => ({ timestamp: p.timestamp, value: p.close }))}
         height={320}
         variant="area"
         color="#00e19d"
@@ -350,7 +351,7 @@ const Dashboard: React.FC = () => {
                         <Typography variant="subtitle1" fontWeight="bold">
                           {al.name}
                         </Typography>
-                        <Chip label={al.severity.toUpperCase()} size="small" color={al.severity === 'critical' ? 'error' : al.severity === 'high' ? 'warning' : al.severity === 'medium' ? 'info' : 'success'} />
+                        <Chip label={(al.severity ?? 'info').toUpperCase()} size="small" color={al.severity === 'critical' ? 'error' : al.severity === 'high' ? 'warning' : al.severity === 'medium' ? 'info' : 'success'} />
                       </Box>
                       <Typography variant="body2" color="text.secondary">
                         {al.alert_type} · {al.symbol || '-'} · {al.triggered_count}x
@@ -384,7 +385,7 @@ const Dashboard: React.FC = () => {
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         <Grid item xs={12} md={8}>
-          <AlertsTicker items={(alertsData?.alerts || []).slice(0, 8).map((a: any) => ({ id: a.id, text: `${a.severity.toUpperCase()} • ${a.alert_type} • ${a.symbol || '-'}` }))} />
+          <AlertsTicker items={(alertsData?.alerts || []).slice(0, 8).map((a: any) => ({ id: a.id, text: `${(a.severity ?? 'info').toUpperCase()} • ${a.alert_type} • ${a.symbol || '-'}` }))} />
         </Grid>
         <Grid item xs={12} md={4}>
           <NewsFeed items={[{ id: '1', title: 'BTC franchit 70k$ (mock)', source: 'MarketWire', time: 'il y a 2 min' }, { id: '2', title: 'ETH mise à jour réseau (mock)', source: 'CryptoNews', time: 'il y a 10 min' }]} />

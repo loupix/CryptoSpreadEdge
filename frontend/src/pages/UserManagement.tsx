@@ -13,7 +13,7 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Chip,
+  // Chip,
   Alert,
   CircularProgress,
   Button,
@@ -34,8 +34,8 @@ import {
   Security as SecurityIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
+  // Add as AddIcon,
+  // Edit as EditIcon,
 } from '@mui/icons-material';
 import UsersTable from '../components/UserManagement/UsersTable';
 import AlertsManager from '../components/Alerts/AlertsManager';
@@ -46,7 +46,7 @@ import {
   useSecuritySummary,
   useNotifications 
 } from '../hooks/useDatabaseApi';
-import { User } from '../services/databaseApi';
+import { User, Notification } from '../types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -98,8 +98,8 @@ const UserManagement: React.FC = () => {
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
 
-  const users = usersData?.users || [];
-  const notifications = notificationsData?.notifications || [];
+  const users: User[] = usersData?.users || [];
+  const notifications: Notification[] = notificationsData?.notifications || [];
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -146,37 +146,37 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'error';
-      case 'trader':
-        return 'primary';
-      case 'analyst':
-        return 'info';
-      case 'viewer':
-        return 'default';
-      case 'auditor':
-        return 'warning';
-      default:
-        return 'default';
-    }
-  };
+  // const getRoleColor = (role: string) => {
+  //   switch (role) {
+  //     case 'admin':
+  //       return 'error';
+  //     case 'trader':
+  //       return 'primary';
+  //     case 'analyst':
+  //       return 'info';
+  //     case 'viewer':
+  //       return 'default';
+  //     case 'auditor':
+  //       return 'warning';
+  //     default:
+  //       return 'default';
+  //   }
+  // };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'success';
-      case 'inactive':
-        return 'default';
-      case 'suspended':
-        return 'error';
-      case 'pending_verification':
-        return 'warning';
-      default:
-        return 'default';
-    }
-  };
+  // const getStatusColor = (status: string) => {
+  //   switch (status) {
+  //     case 'active':
+  //       return 'success';
+  //     case 'inactive':
+  //       return 'default';
+  //     case 'suspended':
+  //       return 'error';
+  //     case 'pending_verification':
+  //       return 'warning';
+  //     default:
+  //       return 'default';
+  //   }
+  // };
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -225,7 +225,7 @@ const UserManagement: React.FC = () => {
                 <CircularProgress size={24} />
               ) : (
                 <Typography variant="h6" color="success.main">
-                  {users.filter(u => u.status === 'active').length}
+                  {users.filter((u: User) => u.status === 'active').length}
                 </Typography>
               )}
             </CardContent>

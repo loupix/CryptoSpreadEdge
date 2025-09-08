@@ -54,8 +54,8 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useExchanges, useCreateUser } from '../../hooks/useDatabaseApi';
-import { Exchange } from '../../services/databaseApi';
+import { useExchanges } from '../../hooks/useDatabaseApi';
+import { Exchange } from '../../types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -279,7 +279,7 @@ const ExchangeConfig: React.FC = () => {
             />
             <CardContent>
               <Typography variant="h6" color="success.main">
-                {exchanges.filter(e => e.status === 'active').length}
+                {exchanges.filter((e: any) => e.status === 'active').length}
               </Typography>
               <Typography variant="body2" color="textSecondary">
                 Prêtes pour le trading
@@ -296,7 +296,7 @@ const ExchangeConfig: React.FC = () => {
             />
             <CardContent>
               <Typography variant="h6" color="warning.main">
-                {exchanges.filter(e => e.status === 'maintenance').length}
+                {exchanges.filter((e: any) => e.status === 'maintenance').length}
               </Typography>
               <Typography variant="body2" color="textSecondary">
                 Retour prévu bientôt
@@ -313,7 +313,7 @@ const ExchangeConfig: React.FC = () => {
             />
             <CardContent>
               <Typography variant="h6" color="error.main">
-                {exchanges.filter(e => e.status === 'error').length}
+                {exchanges.filter((e: any) => e.status === 'error').length}
               </Typography>
               <Typography variant="body2" color="textSecondary">
                 Vérification requise
@@ -361,7 +361,7 @@ const ExchangeConfig: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {exchanges.map((exchange) => (
+                  {exchanges.map((exchange: import('../../types').Exchange) => (
                     <TableRow key={exchange.id} hover>
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">
@@ -373,8 +373,8 @@ const ExchangeConfig: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={getTypeLabel(exchange.exchange_type)}
-                          color={getTypeColor(exchange.exchange_type)}
+                          label={getTypeLabel(exchange.exchange_type || 'centralized')}
+                          color={getTypeColor(exchange.exchange_type || 'centralized')}
                           size="small"
                         />
                       </TableCell>
@@ -390,17 +390,17 @@ const ExchangeConfig: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {exchange.countries.join(', ')}
+                          {(exchange.countries || []).join(', ')}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {(exchange.trading_fees.maker * 100).toFixed(3)}%
+                          {(((exchange.trading_fees?.maker ?? 0) * 100).toFixed(3))}%
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {(exchange.trading_fees.taker * 100).toFixed(3)}%
+                          {(((exchange.trading_fees?.taker ?? 0) * 100).toFixed(3))}%
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -467,7 +467,7 @@ const ExchangeConfig: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {exchanges.map((exchange) => (
+                  {exchanges.map((exchange: import('../../types').Exchange) => (
                     <TableRow key={exchange.id} hover>
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">
@@ -492,7 +492,9 @@ const ExchangeConfig: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {format(new Date(exchange.updated_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                          {exchange.updated_at
+                            ? format(new Date(exchange.updated_at), 'dd/MM/yyyy HH:mm', { locale: fr })
+                            : '-'}
                         </Typography>
                       </TableCell>
                       <TableCell>

@@ -13,7 +13,7 @@ import {
   LinearProgress,
   Chip,
   Button,
-  Alert,
+  // Alert,
   CircularProgress,
   Table,
   TableBody,
@@ -26,10 +26,10 @@ import {
   FormControlLabel,
   Slider,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  // FormControl,
+  // InputLabel,
+  // Select,
+  // MenuItem,
   Tabs,
   Tab,
   Accordion,
@@ -133,13 +133,13 @@ const PerformanceOptimizer: React.FC = () => {
     return <ErrorIcon />;
   };
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  // const formatBytes = (bytes: number) => {
+  //   if (bytes === 0) return '0 Bytes';
+  //   const k = 1024;
+  //   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  //   const i = Math.floor(Math.log(bytes) / Math.log(k));
+  //   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  // };
 
   const formatDuration = (ms: number) => {
     if (ms < 1000) return `${ms}ms`;

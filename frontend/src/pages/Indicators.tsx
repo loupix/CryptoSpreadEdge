@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -31,10 +31,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Area,
-  AreaChart,
+  // Area,
+  // AreaChart,
 } from 'recharts';
-import { apiClient, IndicatorResponse, MarketDataResponse } from '../services/api';
+import { apiClient } from '../services/api';
+import { IndicatorResponse, MarketDataResponse } from '../types/api';
 import { wsService } from '../services/websocket';
 
 const SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL'];
@@ -79,16 +80,7 @@ const Indicators: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
 
-  useEffect(() => {
-    loadIndicators();
-    connectWebSocket();
-    
-    return () => {
-      wsService.disconnect();
-    };
-  }, [selectedSymbol, selectedIndicators]);
-
-  const loadIndicators = async () => {
+  const loadIndicators = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -112,9 +104,9 @@ const Indicators: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSymbol, selectedIndicators]);
 
-  const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
     wsService.connect();
     
     wsService.subscribeToIndicators((data) => {
@@ -122,7 +114,16 @@ const Indicators: React.FC = () => {
         setIndicators(data);
       }
     });
-  };
+  }, [selectedSymbol]);
+
+  useEffect(() => {
+    loadIndicators();
+    connectWebSocket();
+    
+    return () => {
+      wsService.disconnect();
+    };
+  }, [selectedSymbol, selectedIndicators, connectWebSocket, loadIndicators]);
 
   const formatValue = (value: number, indicator: string) => {
     if (indicator.includes('RSI') || indicator.includes('STOCH') || indicator.includes('WILLIAMS')) {

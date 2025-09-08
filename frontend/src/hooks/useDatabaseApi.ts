@@ -3,7 +3,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { databaseApiService, Order, Position, Trade, Portfolio, User, Exchange, Alert, Notification } from '../services/databaseApi';
+import { databaseApiService } from '../services/databaseApi';
+import { Order, Position, User, AlertType } from '../types';
 
 // Hook générique pour les données
 export function useApiData<T>(
@@ -25,7 +26,7 @@ export function useApiData<T>(
     } finally {
       setLoading(false);
     }
-  }, dependencies);
+  }, [apiCall, ...dependencies]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchData();
@@ -351,7 +352,7 @@ export function useCreateAlert() {
 }
 
 export function useUpdateAlert() {
-  return useMutation(({ id, data }: { id: string; data: Partial<Alert> }) =>
+  return useMutation(({ id, data }: { id: string; data: Partial<AlertType> }) =>
     databaseApiService.updateAlert(id, data)
   );
 }

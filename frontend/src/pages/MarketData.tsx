@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -20,19 +20,20 @@ import {
   Paper,
   Chip,
   Alert,
-  LinearProgress,
+  // LinearProgress,
   Skeleton,
 } from '@mui/material';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
-import { ResponsiveContainer } from 'recharts';
-import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
+// import { ResponsiveContainer } from 'recharts';
+// import TimeSeriesChart from '../components/Charts/TimeSeriesChart';
 import VolumeBarChart from '../components/Charts/VolumeBarChart';
 import OrderBookMini from '../components/Charts/OrderBookMini';
 import DepthChart from '../components/Charts/DepthChart';
 import CandlestickPro from '../components/Charts/CandlestickPro';
 import OrderFlowChart from '../components/Charts/OrderFlowChart';
 import Sparkline from '../components/Charts/Sparkline';
-import { apiClient, MarketDataResponse } from '../services/api';
+import { apiClient } from '../services/api';
+import { MarketDataResponse } from '../types/api';
 import { wsService } from '../services/websocket';
 
 const SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'DOT', 'LINK', 'UNI', 'AVAX', 'MATIC'];
@@ -47,16 +48,7 @@ const MarketData: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [realTimeData, setRealTimeData] = useState<Record<string, any>>({});
 
-  useEffect(() => {
-    loadMarketData();
-    connectWebSocket();
-    
-    return () => {
-      wsService.disconnect();
-    };
-  }, []);
-
-  const loadMarketData = async () => {
+  const loadMarketData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -69,11 +61,11 @@ const MarketData: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSymbols, selectedTimeframe, limit]);
 
   const { debounced: debouncedReload } = useDebouncedCallback(loadMarketData, 300);
 
-  const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
     wsService.connect();
     
     wsService.subscribeToMarketData((data) => {
@@ -82,7 +74,16 @@ const MarketData: React.FC = () => {
         [data.symbol]: data
       }));
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    loadMarketData();
+    connectWebSocket();
+    
+    return () => {
+      wsService.disconnect();
+    };
+  }, [selectedSymbols, selectedTimeframe, limit, loadMarketData, connectWebSocket]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -138,7 +139,7 @@ const MarketData: React.FC = () => {
                     </Box>
                   )}
                 >
-                  {SYMBOLS.map((symbol) => (
+                  {SYMBOLS.map((symbol: string) => (
                     <MenuItem key={symbol} value={symbol}>
                       {symbol}
                     </MenuItem>
@@ -154,7 +155,7 @@ const MarketData: React.FC = () => {
                   value={selectedTimeframe}
                   onChange={(e) => { setSelectedTimeframe(e.target.value); debouncedReload(); }}
                 >
-                  {TIMEFRAMES.map((tf) => (
+                  {TIMEFRAMES.map((tf: string) => (
                     <MenuItem key={tf} value={tf}>
                       {tf}
                     </MenuItem>
@@ -193,7 +194,7 @@ const MarketData: React.FC = () => {
         <Box>
           <Skeleton variant="rectangular" height={100} sx={{ mb: 2 }} />
           <Grid container spacing={3} sx={{ mb: 3 }}>
-            {Array.from({ length: 2 }).map((_, i) => (
+            {Array.from({ length: 2 }).map((_: unknown, i: number) => (
               <Grid item xs={12} md={6} key={i}>
                 <Skeleton variant="rectangular" height={360} />
               </Grid>
@@ -211,7 +212,7 @@ const MarketData: React.FC = () => {
 
       {/* Graphiques des prix */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        {marketData.map((crypto) => {
+        {marketData.map((crypto: any) => {
           const chartData = prepareChartData(crypto.data);
           const priceChange = getPriceChange(crypto.data);
           const latestPrice = crypto.data[crypto.data.length - 1];
@@ -239,14 +240,14 @@ const MarketData: React.FC = () => {
                   <Box sx={{ height: 220 }}>
                     <CandlestickPro
                       title={undefined}
-                      data={crypto.data.map(p => ({ timestamp: new Date(p.timestamp).getTime(), open: p.open, high: p.high, low: p.low, close: p.close }))}
+                      data={crypto.data.map((p: MarketDataResponse['data'][number]) => ({ timestamp: new Date(p.timestamp).getTime(), open: p.open, high: p.high, low: p.low, close: p.close }))}
                       height={220}
                       showMA
                     />
                   </Box>
                   <Box sx={{ mt: 2 }}>
                     <VolumeBarChart
-                      data={chartData.map(p => ({ timestamp: p.timestamp, volume: p.volume }))}
+                      data={chartData.map((p: { timestamp: number; volume: number }) => ({ timestamp: p.timestamp, volume: p.volume }))}
                       height={120}
                       color="#7aa2f7"
                       valueFormatter={(v) => formatVolume(v)}
@@ -303,7 +304,7 @@ const MarketData: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {marketData.map((crypto) => {
+                {marketData.map((crypto: any) => {
                   const latestPrice = crypto.data[crypto.data.length - 1];
                   return (
                     <TableRow key={crypto.symbol}>
@@ -337,7 +338,7 @@ const MarketData: React.FC = () => {
                         />
                           <Box sx={{ width: 100 }}>
                             <Sparkline
-                              data={crypto.data.slice(-20).map(p => ({ value: p.close }))}
+                              data={crypto.data.slice(-20).map((p: MarketDataResponse['data'][number]) => ({ value: p.close }))}
                               height={32}
                               color={(latestPrice && crypto.data.length > 1 && latestPrice.close >= crypto.data[crypto.data.length - 2].close) ? '#22c55e' : '#ef4444'}
                             />
@@ -361,7 +362,7 @@ const MarketData: React.FC = () => {
               Mises à jour Temps Réel
             </Typography>
             <Grid container spacing={2}>
-              {Object.entries(realTimeData).map(([symbol, data]) => (
+              {Object.entries(realTimeData).map(([symbol, data]: [string, any]) => (
                 <Grid item xs={12} sm={6} md={4} key={symbol}>
                   <Card variant="outlined">
                     <CardContent>

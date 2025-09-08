@@ -29,7 +29,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  LinearProgress,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -41,7 +40,7 @@ import {
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { usePositions, useClosePosition } from '../../hooks/useDatabaseApi';
-import { Position } from '../../services/databaseApi';
+import { Position } from '../../types';
 
 interface PositionsTableProps {
   onViewPosition?: (position: Position) => void;
@@ -106,7 +105,8 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
+    if (!status) return 'default';
     switch (status) {
       case 'open':
         return 'success';
@@ -228,7 +228,7 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {positions.map((position) => (
+            {positions.map((position: import('../../types').Position) => (
               <TableRow key={position.id} hover>
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
@@ -251,52 +251,64 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {position.quantity.toFixed(8)}
+                    {position.quantity !== undefined
+                      ? position.quantity.toFixed(8)
+                      : '-'}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {formatCurrency(position.average_price)}
+                    {position.average_price != null
+                      ? formatCurrency(position.average_price)
+                      : '-'}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {position.current_price ? formatCurrency(position.current_price) : '-'}
+                    {position.current_price != null
+                      ? formatCurrency(position.current_price)
+                      : '-'}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
                     variant="body2"
-                    color={getPnLColor(position.unrealized_pnl)}
+                    color={getPnLColor(position.unrealized_pnl ?? 0)}
                     fontWeight="bold"
                   >
-                    {formatCurrency(position.unrealized_pnl)}
+                    {position.unrealized_pnl != null
+                      ? formatCurrency(position.unrealized_pnl)
+                      : '-'}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
                     variant="body2"
-                    color={getPnLColor(position.realized_pnl)}
+                    color={getPnLColor(position.realized_pnl ?? 0)}
                     fontWeight="bold"
                   >
-                    {formatCurrency(position.realized_pnl)}
+                    {position.realized_pnl != null
+                      ? formatCurrency(position.realized_pnl)
+                      : '-'}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={position.status.toUpperCase()}
+                    label={(position.status ?? '-').toUpperCase()}
                     color={getStatusColor(position.status)}
                     size="small"
                   />
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {position.exchange.toUpperCase()}
+                    {(position.exchange ?? '-').toUpperCase()}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {format(new Date(position.opened_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                    {position.opened_at != null
+                      ? format(new Date(position.opened_at), 'dd/MM/yyyy HH:mm', { locale: fr })
+                      : '-'}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -352,7 +364,8 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
           {selectedPosition && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                {selectedPosition.symbol} - {selectedPosition.side.toUpperCase()}
+                {(selectedPosition.symbol ?? '-')}
+                {selectedPosition.side ? ` - ${selectedPosition.side.toUpperCase()}` : ''}
               </Typography>
               
               {/* PnL Summary */}
@@ -363,10 +376,12 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                   </Typography>
                   <Typography
                     variant="h6"
-                    color={getPnLColor(selectedPosition.unrealized_pnl)}
+                    color={getPnLColor(selectedPosition.unrealized_pnl ?? 0)}
                     fontWeight="bold"
                   >
-                    {formatCurrency(selectedPosition.unrealized_pnl)}
+                    {selectedPosition.unrealized_pnl != null
+                      ? formatCurrency(selectedPosition.unrealized_pnl)
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box flex={1}>
@@ -375,10 +390,12 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                   </Typography>
                   <Typography
                     variant="h6"
-                    color={getPnLColor(selectedPosition.realized_pnl)}
+                    color={getPnLColor(selectedPosition.realized_pnl ?? 0)}
                     fontWeight="bold"
                   >
-                    {formatCurrency(selectedPosition.realized_pnl)}
+                    {selectedPosition.realized_pnl != null
+                      ? formatCurrency(selectedPosition.realized_pnl)
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box flex={1}>
@@ -387,10 +404,10 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                   </Typography>
                   <Typography
                     variant="h6"
-                    color={getPnLColor(selectedPosition.unrealized_pnl + selectedPosition.realized_pnl)}
+                    color={getPnLColor((selectedPosition.unrealized_pnl ?? 0) + (selectedPosition.realized_pnl ?? 0))}
                     fontWeight="bold"
                   >
-                    {formatCurrency(selectedPosition.unrealized_pnl + selectedPosition.realized_pnl)}
+                    {formatCurrency((selectedPosition.unrealized_pnl ?? 0) + (selectedPosition.realized_pnl ?? 0))}
                   </Typography>
                 </Box>
               </Box>
@@ -401,7 +418,9 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                     Quantité
                   </Typography>
                   <Typography variant="body2">
-                    {selectedPosition.quantity.toFixed(8)}
+                    {selectedPosition.quantity !== undefined
+                      ? selectedPosition.quantity.toFixed(8)
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -409,7 +428,9 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                     Prix Moyen
                   </Typography>
                   <Typography variant="body2">
-                    {formatCurrency(selectedPosition.average_price)}
+                    {selectedPosition.average_price != null
+                      ? formatCurrency(selectedPosition.average_price)
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -417,7 +438,9 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                     Prix Actuel
                   </Typography>
                   <Typography variant="body2">
-                    {selectedPosition.current_price ? formatCurrency(selectedPosition.current_price) : '-'}
+                    {selectedPosition.current_price != null
+                      ? formatCurrency(selectedPosition.current_price)
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -425,7 +448,7 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                     Statut
                   </Typography>
                   <Chip
-                    label={selectedPosition.status.toUpperCase()}
+                    label={(selectedPosition.status ?? '-').toUpperCase()}
                     color={getStatusColor(selectedPosition.status)}
                     size="small"
                   />
@@ -435,7 +458,7 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                     Exchange
                   </Typography>
                   <Typography variant="body2">
-                    {selectedPosition.exchange.toUpperCase()}
+                    {(selectedPosition.exchange ?? '-').toUpperCase()}
                   </Typography>
                 </Box>
                 <Box>
@@ -451,7 +474,9 @@ const PositionsTable: React.FC<PositionsTableProps> = ({
                     Ouverte le
                   </Typography>
                   <Typography variant="body2">
-                    {format(new Date(selectedPosition.opened_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                    {selectedPosition.opened_at
+                      ? format(new Date(selectedPosition.opened_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>

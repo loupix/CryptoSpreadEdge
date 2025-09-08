@@ -23,7 +23,7 @@ const AlertsTicker: React.FC<AlertsTickerProps> = ({ items }) => {
               '100%': { transform: 'translateX(-50%)' },
             },
           }}>
-            {[...items, ...items].map((it, idx) => (
+            {[...items, ...items].map((it: { id: string; text: string }, idx: number) => (
               <Box key={it.id + '-' + idx} sx={{ display: 'inline-block', mr: 4, color: 'text.secondary' }}>
                 {it.text}
               </Box>

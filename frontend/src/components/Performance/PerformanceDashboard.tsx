@@ -21,12 +21,6 @@ import {
   Paper,
   Alert,
   CircularProgress,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  TextField,
   Tabs,
   Tab,
 } from '@mui/material';
@@ -77,7 +71,7 @@ function TabPanel(props: TabPanelProps) {
 
 const PerformanceDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
-  const [timeRange, setTimeRange] = useState('24h');
+  // const [timeRange, setTimeRange] = useState('24h');
 
   // Hooks pour les données
   const { data: performanceSummary, loading: summaryLoading } = usePerformanceSummary();
@@ -97,7 +91,7 @@ const PerformanceDashboard: React.FC = () => {
     return filtered
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .slice(-20)
-      .map(m => ({ value: Number(m.value || 0) }));
+      .map((m: any) => ({ value: Number(m.value || 0) }));
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -418,7 +412,9 @@ const PerformanceDashboard: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {format(new Date(metric.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                            {metric.timestamp
+                              ? format(new Date(metric.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                              : '-'}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -531,7 +527,9 @@ const PerformanceDashboard: React.FC = () => {
                     {(performanceMetrics.events || []).slice(0, 20).map((ev: any, index: number) => (
                       <TableRow key={index}>
                         <TableCell>
-                          {format(new Date(ev.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                          {ev.timestamp
+                            ? format(new Date(ev.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                            : '-'}
                         </TableCell>
                         <TableCell>
                           <Chip label={ev.level?.toUpperCase() || 'INFO'} color={ev.level === 'error' ? 'error' : ev.level === 'warning' ? 'warning' : 'default'} size="small" />

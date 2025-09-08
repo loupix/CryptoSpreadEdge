@@ -2,7 +2,7 @@
  * Interface de trading avancée
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Grid,
@@ -20,9 +20,7 @@ import {
   Tabs,
   Tab,
   Chip,
-  Alert,
   CircularProgress,
-  Divider,
   IconButton,
   Tooltip,
   Dialog,
@@ -31,7 +29,6 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
-  Slider,
   Table,
   TableBody,
   TableCell,
@@ -51,7 +48,7 @@ import {
   ShowChart as ShowChartIcon,
   History as HistoryIcon,
   Security as SecurityIcon,
-  Speed as SpeedIcon,
+  // Speed as SpeedIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -60,12 +57,11 @@ import {
   usePositions, 
   useTrades,
   useCreateOrder,
-  useUpdateOrder,
   useDeleteOrder,
   useClosePosition,
   usePortfolioSummary 
 } from '../../hooks/useDatabaseApi';
-import { Order, Position, Trade } from '../../services/databaseApi';
+import { Order, Position, Trade } from '../../types/domain';
 import OpenPositionsCompact from './OpenPositionsCompact';
 import OrdersCompact from './OrdersCompact';
 import TradesTimeline from './TradesTimeline';
@@ -96,7 +92,7 @@ const TradingInterface: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
   const [isTradingActive, setIsTradingActive] = useState(false);
-  const [showOrderDialog, setShowOrderDialog] = useState(false);
+  // const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   
   // État pour le nouvel ordre
@@ -125,11 +121,11 @@ const TradingInterface: React.FC = () => {
     limit: 20,
   });
 
-  const { data: portfolioSummary, loading: portfolioLoading } = usePortfolioSummary();
+  const { data: portfolioSummary } = usePortfolioSummary();
 
   // Mutations
   const createOrderMutation = useCreateOrder();
-  const updateOrderMutation = useUpdateOrder();
+  // const updateOrderMutation = useUpdateOrder();
   const deleteOrderMutation = useDeleteOrder();
   const closePositionMutation = useClosePosition();
 
@@ -148,7 +144,7 @@ const TradingInterface: React.FC = () => {
         exchange: 'binance', // Par défaut
         source: 'manual',
       });
-      setShowOrderDialog(false);
+      // setShowOrderDialog(false);
       setNewOrder({
         symbol: selectedSymbol,
         side: 'buy',
@@ -386,13 +382,20 @@ const TradingInterface: React.FC = () => {
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} md={6}>
                 <OrdersCompact
-                  items={orders.map(o => ({ id: o.id, symbol: o.symbol, side: o.side as any, type: o.order_type, qty: o.quantity, price: o.price, status: o.status }))}
+                  items={orders.map((o: Order) => ({ id: o.id, symbol: o.symbol, side: o.side as any, type: o.order_type, qty: o.quantity, price: o.price, status: o.status }))}
                   onCancel={handleCancelOrder}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <OpenPositionsCompact
-                  items={positions.map(p => ({ id: p.id, symbol: p.symbol, side: (p.side === 'buy' ? 'long' : 'short') as any, qty: p.quantity, entry: p.entry_price, pnl: p.unrealized_pnl || 0 }))}
+                  items={positions.map((p: Position) => ({
+                    id: p.id,
+                    symbol: p.symbol,
+                    side: (p.side === 'buy' ? 'long' : 'short') as 'long' | 'short',
+                    qty: p.quantity,
+                    entry: p.entry_price ?? 0,
+                    pnl: p.unrealized_pnl ?? 0,
+                  }))}
                   onClose={handleClosePosition}
                 />
               </Grid>
@@ -401,7 +404,7 @@ const TradingInterface: React.FC = () => {
               <Typography variant="h6">Ordres Actifs</Typography>
               <Button
                 variant="contained"
-                onClick={() => setShowOrderDialog(true)}
+                // onClick={() => setShowOrderDialog(true)}
                 startIcon={<PlayIcon />}
               >
                 Nouvel Ordre
@@ -428,7 +431,7 @@ const TradingInterface: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {orders.map((order) => (
+                    {orders.map((order: Order) => (
                       <TableRow key={order.id} hover>
                         <TableCell>
                           <Typography variant="body2" noWrap>
@@ -466,7 +469,9 @@ const TradingInterface: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {format(new Date(order.created_at), 'HH:mm:ss', { locale: fr })}
+                            {order.created_at
+                              ? format(new Date(order.created_at), 'HH:mm:ss', { locale: fr })
+                              : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -497,7 +502,14 @@ const TradingInterface: React.FC = () => {
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12}>
                 <OpenPositionsCompact
-                  items={positions.map(p => ({ id: p.id, symbol: p.symbol, side: (p.side === 'buy' ? 'long' : 'short') as any, qty: p.quantity, entry: p.entry_price, pnl: p.unrealized_pnl || 0 }))}
+                  items={positions.map((p: Position) => ({
+                    id: p.id,
+                    symbol: p.symbol,
+                    side: (p.side === 'buy' ? 'long' : 'short') as 'long' | 'short',
+                    qty: p.quantity,
+                    entry: p.entry_price ?? 0,
+                    pnl: p.unrealized_pnl ?? 0,
+                  }))}
                   onClose={handleClosePosition}
                 />
               </Grid>
@@ -524,7 +536,7 @@ const TradingInterface: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {positions.map((position) => (
+                    {positions.map((position: Position) => (
                       <TableRow key={position.id} hover>
                         <TableCell>
                           <Typography variant="body2" fontWeight="bold">
@@ -552,30 +564,38 @@ const TradingInterface: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {formatCurrency(position.average_price)}
+                            {position.average_price != null
+                              ? formatCurrency(position.average_price)
+                              : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {position.current_price ? formatCurrency(position.current_price) : '-'}
+                            {position.current_price != null
+                              ? formatCurrency(position.current_price)
+                              : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography
                             variant="body2"
-                            color={getPnLColor(position.unrealized_pnl)}
+                            color={getPnLColor(position.unrealized_pnl ?? 0)}
                             fontWeight="bold"
                           >
-                            {formatCurrency(position.unrealized_pnl)}
+                            {position.unrealized_pnl != null
+                              ? formatCurrency(position.unrealized_pnl)
+                              : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography
                             variant="body2"
-                            color={getPnLColor(position.realized_pnl)}
+                            color={getPnLColor(position.realized_pnl ?? 0)}
                             fontWeight="bold"
                           >
-                            {formatCurrency(position.realized_pnl)}
+                            {position.realized_pnl != null
+                              ? formatCurrency(position.realized_pnl)
+                              : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -603,7 +623,14 @@ const TradingInterface: React.FC = () => {
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12}>
                 <TradesTimeline
-                  items={trades.map(t => ({ id: t.id, time: format(new Date(t.timestamp), 'HH:mm:ss', { locale: fr }), symbol: t.symbol, side: t.side as any, price: t.price, qty: t.quantity }))}
+                  items={trades.map((t: Trade) => ({
+                    id: t.id,
+                    time: t.timestamp ? format(new Date(t.timestamp), 'HH:mm:ss', { locale: fr }) : '-',
+                    symbol: t.symbol,
+                    side: t.side as any,
+                    price: t.price,
+                    qty: t.quantity,
+                  }))}
                 />
               </Grid>
             </Grid>
@@ -628,7 +655,7 @@ const TradingInterface: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {trades.map((trade) => (
+                    {trades.map((trade: Trade) => (
                       <TableRow key={trade.id} hover>
                         <TableCell>
                           <Typography variant="body2" noWrap>
@@ -654,21 +681,23 @@ const TradingInterface: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {formatCurrency(trade.fees)}
+                            {formatCurrency(trade.fees ?? 0)}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography
                             variant="body2"
-                            color={getPnLColor(trade.pnl)}
+                            color={getPnLColor(trade.pnl ?? 0)}
                             fontWeight="bold"
                           >
-                            {formatCurrency(trade.pnl)}
+                            {formatCurrency(trade.pnl ?? 0)}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {format(new Date(trade.executed_at), 'dd/MM HH:mm:ss', { locale: fr })}
+                            {trade.executed_at
+                              ? format(new Date(trade.executed_at), 'dd/MM HH:mm:ss', { locale: fr })
+                              : '-'}
                           </Typography>
                         </TableCell>
                       </TableRow>

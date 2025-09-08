@@ -31,11 +31,6 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
-  Slider,
-  Card,
-  CardContent,
-  CardHeader,
-  Grid,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -53,7 +48,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAlerts, useCreateAlert, useUpdateAlert, useDeleteAlert } from '../../hooks/useDatabaseApi';
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback';
-import { Alert as AlertType } from '../../services/databaseApi';
+import { AlertType } from '../../types';
 
 interface AlertsManagerProps {
   refreshTrigger?: number;
@@ -83,7 +78,10 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
   });
 
   const { data: alertsData, loading, error, refetch } = useAlerts({
-    ...filters,
+    alert_type: filters.alert_type || undefined,
+    severity: filters.severity || undefined,
+    is_active: filters.is_active === '' ? undefined : (filters.is_active === 'true'),
+    limit: filters.limit,
     offset: filters.offset * filters.limit,
   });
   const { debounced: debouncedRefetch } = useDebouncedCallback(() => refetch(), 250);
@@ -95,6 +93,30 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
   const alerts = alertsData?.alerts || [];
   const totalCount = alertsData?.total_count || 0;
   const totalPages = Math.ceil(totalCount / filters.limit);
+
+  // Virtualization basics (defined before early returns to respect hooks rules)
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [virtual, setVirtual] = useState({ start: 0, end: 30, rowHeight: 48 });
+  const totalRows = alerts.length;
+  const onScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const scrollTop = el.scrollTop;
+    const viewport = el.clientHeight;
+    const rowHeight = virtual.rowHeight;
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 5);
+    const end = Math.min(totalRows, Math.ceil((scrollTop + viewport) / rowHeight) + 5);
+    setVirtual(v => ({ ...v, start, end }));
+  }, [totalRows, virtual.rowHeight]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [onScroll]);
+
+  const visibleAlerts = alerts.slice(virtual.start, virtual.end);
 
   const handleFilterChange = (field: string, value: any) => {
     setFilters(prev => ({
@@ -135,7 +157,17 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
 
   const handleCreateAlert = async () => {
     try {
-      await createAlertMutation.mutate(newAlert);
+      const payload: Partial<AlertType> = {
+        name: newAlert.name,
+        alert_type: newAlert.alert_type,
+        severity: newAlert.severity,
+        symbol: newAlert.symbol,
+        condition: newAlert.condition as any,
+        is_active: !!newAlert.is_active,
+        cooldown_seconds: newAlert.cooldown_seconds,
+        created_at: newAlert.created_at ? String(newAlert.created_at) : undefined,
+      };
+      await createAlertMutation.mutate(payload);
       setShowCreateDialog(false);
       setNewAlert({
         name: '',
@@ -154,9 +186,19 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
   const handleUpdateAlert = async () => {
     if (selectedAlert) {
       try {
+        const payload: Partial<AlertType> = {
+          name: selectedAlert.name,
+          alert_type: selectedAlert.alert_type,
+          severity: selectedAlert.severity,
+          symbol: selectedAlert.symbol,
+          condition: selectedAlert.condition as any,
+          is_active: !!selectedAlert.is_active,
+          cooldown_seconds: selectedAlert.cooldown_seconds,
+          created_at: selectedAlert.created_at ? String(selectedAlert.created_at) : undefined,
+        };
         await updateAlertMutation.mutate({
           id: selectedAlert.id,
-          data: selectedAlert,
+          data: payload,
         });
         setShowEditDialog(false);
         setSelectedAlert(null);
@@ -251,30 +293,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
     );
   }
 
-  // Virtualization basics
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [virtual, setVirtual] = useState({ start: 0, end: 30, rowHeight: 48 });
-  const alerts = alertsData?.alerts || [];
-  const totalRows = alerts.length;
-  const onScroll = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const scrollTop = el.scrollTop;
-    const viewport = el.clientHeight;
-    const rowHeight = virtual.rowHeight;
-    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 5);
-    const end = Math.min(totalRows, Math.ceil((scrollTop + viewport) / rowHeight) + 5);
-    setVirtual(v => ({ ...v, start, end }));
-  }, [totalRows, virtual.rowHeight]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener('scroll', onScroll);
-    return () => el.removeEventListener('scroll', onScroll);
-  }, [onScroll]);
-
-  const visibleAlerts = alerts.slice(virtual.start, virtual.end);
+  
 
   return (
     <Box>
@@ -360,7 +379,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
                 <TableCell colSpan={9} sx={{ height: virtual.start * virtual.rowHeight, p: 0 }} />
               </TableRow>
             )}
-            {visibleAlerts.map((alert) => (
+            {visibleAlerts.map((alert: AlertType) => (
               <TableRow key={alert.id} hover>
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
@@ -496,7 +515,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
                   <Box display="flex" alignItems="center" gap={1}>
                     {getSeverityIcon(selectedAlert.severity)}
                     <Chip
-                      label={selectedAlert.severity.toUpperCase()}
+                      label={(selectedAlert.severity ?? '-').toUpperCase()}
                       color={getSeverityColor(selectedAlert.severity)}
                       size="small"
                     />
@@ -544,7 +563,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
                     Cooldown
                   </Typography>
                   <Typography variant="body2">
-                    {selectedAlert.cooldown_seconds} secondes
+                    {selectedAlert.cooldown_seconds ?? 0} secondes
                   </Typography>
                 </Box>
                 <Box>
@@ -552,7 +571,9 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
                     Créée le
                   </Typography>
                   <Typography variant="body2">
-                    {format(new Date(selectedAlert.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                    {selectedAlert.created_at
+                      ? format(new Date(selectedAlert.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                      : '-'}
                   </Typography>
                 </Box>
               </Box>
@@ -598,7 +619,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
               <InputLabel>Type</InputLabel>
               <Select
                 value={newAlert.alert_type}
-                onChange={(e) => setNewAlert(prev => ({ ...prev, alert_type: e.target.value as any }))}
+                onChange={(e) => setNewAlert(prev => ({ ...prev, alert_type: e.target.value as 'price' | 'volume' | 'risk' | 'system' | 'trading' | 'performance' }))}
                 label="Type"
               >
                 <MenuItem value="price">Prix</MenuItem>
@@ -613,7 +634,7 @@ const AlertsManager: React.FC<AlertsManagerProps> = ({
               <InputLabel>Sévérité</InputLabel>
               <Select
                 value={newAlert.severity}
-                onChange={(e) => setNewAlert(prev => ({ ...prev, severity: e.target.value as any }))}
+                onChange={(e) => setNewAlert(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' | 'critical' }))}
                 label="Sévérité"
               >
                 <MenuItem value="low">Faible</MenuItem>

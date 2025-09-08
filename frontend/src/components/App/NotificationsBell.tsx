@@ -23,7 +23,7 @@ const NotificationsBell: React.FC<NotificationsBellProps> = ({ items = [] }) => 
         {items.length === 0 ? (
           <MenuItem disabled>Aucune notification</MenuItem>
         ) : (
-          items.slice(0, 6).map((it) => (
+          items.slice(0, 6).map((it: { id: string; title: string; time: string }) => (
             <MenuItem key={it.id} onClick={handleClose}>
               <ListItemText primary={it.title} secondary={it.time} />
             </MenuItem>

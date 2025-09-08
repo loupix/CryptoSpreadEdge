@@ -35,12 +35,11 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useOrders, useDeleteOrder } from '../../hooks/useDatabaseApi';
-import { Order } from '../../services/databaseApi';
+import { Order } from '../../types';
 
 interface OrdersTableProps {
   onViewOrder?: (order: Order) => void;
@@ -217,7 +216,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {orders.map((order) => (
+            {orders.map((order: import('../../types').Order) => (
               <TableRow key={order.id} hover>
                 <TableCell>
                   <Typography variant="body2" noWrap>
@@ -260,12 +259,14 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {order.exchange.toUpperCase()}
+                    {(order.exchange ?? '-').toUpperCase()}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                    {order.created_at
+                      ? format(new Date(order.created_at), 'dd/MM/yyyy HH:mm', { locale: fr })
+                      : '-'}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -369,7 +370,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     Quantité remplie
                   </Typography>
                   <Typography variant="body2">
-                    {selectedOrder.filled_quantity.toFixed(8)}
+                    {selectedOrder.filled_quantity !== undefined
+                      ? selectedOrder.filled_quantity.toFixed(8)
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -377,7 +380,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     Prix moyen
                   </Typography>
                   <Typography variant="body2">
-                    {selectedOrder.average_price.toFixed(2)}
+                    {selectedOrder.average_price !== undefined
+                      ? selectedOrder.average_price.toFixed(2)
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -395,7 +400,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     Exchange
                   </Typography>
                   <Typography variant="body2">
-                    {selectedOrder.exchange.toUpperCase()}
+                    {(selectedOrder.exchange ?? '-').toUpperCase()}
                   </Typography>
                 </Box>
                 <Box>
@@ -403,7 +408,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     Créé le
                   </Typography>
                   <Typography variant="body2">
-                    {format(new Date(selectedOrder.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                    {selectedOrder.created_at
+                      ? format(new Date(selectedOrder.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                      : '-'}
                   </Typography>
                 </Box>
                 <Box>
@@ -411,7 +418,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     Modifié le
                   </Typography>
                   <Typography variant="body2">
-                    {format(new Date(selectedOrder.updated_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                    {selectedOrder.updated_at
+                      ? format(new Date(selectedOrder.updated_at), 'dd/MM/yyyy HH:mm:ss', { locale: fr })
+                      : '-'}
                   </Typography>
                 </Box>
               </Box>
