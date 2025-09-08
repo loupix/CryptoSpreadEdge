@@ -7,6 +7,7 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime
 from dataclasses import dataclass
+from ..utils.messaging.redis_bus import RedisEventBus
 
 from ..connectors.common.market_data_types import Order, OrderStatus, OrderSide, OrderType
 from ..connectors.common.base_connector import BaseConnector
@@ -37,11 +38,15 @@ class OrderManager:
         self._orders: Dict[str, Order] = {}
         self._running = False
         self._order_counter = 0
+        self._event_bus: RedisEventBus | None = None
     
     async def start(self) -> None:
         """Démarre le gestionnaire d'ordres"""
         self.logger.info("Démarrage du gestionnaire d'ordres...")
         self._running = True
+        # Connecter l'EventBus
+        self._event_bus = RedisEventBus()
+        await self._event_bus.connect()
         
         # Démarrer les tâches de monitoring
         asyncio.create_task(self._order_monitoring_loop())
@@ -51,6 +56,10 @@ class OrderManager:
         """Arrête le gestionnaire d'ordres"""
         self.logger.info("Arrêt du gestionnaire d'ordres...")
         self._running = False
+        if self._event_bus:
+            self._event_bus.stop()
+            await self._event_bus.close()
+            self._event_bus = None
     
     def register_connector(self, name: str, connector: BaseConnector) -> None:
         """Enregistre un connecteur d'exchange"""
@@ -83,6 +92,8 @@ class OrderManager:
                 # Enregistrer l'ordre
                 self._orders[placed_order.order_id] = placed_order
                 self.logger.info(f"Ordre {placed_order.order_id} placé avec succès")
+                # Publier événement ordre soumis
+                await self._publish_order_event("orders.submitted", placed_order)
                 return placed_order
             else:
                 self.logger.error(f"Échec du placement de l'ordre {order.order_id}")
@@ -111,6 +122,8 @@ class OrderManager:
             if success:
                 order.status = OrderStatus.CANCELLED
                 self.logger.info(f"Ordre {order_id} annulé avec succès")
+                # Publier événement annulation
+                await self._publish_order_event("orders.cancelled", order)
             else:
                 self.logger.error(f"Échec de l'annulation de l'ordre {order_id}")
             
@@ -159,7 +172,12 @@ class OrderManager:
                     if connector:
                         updated_order = await connector.get_order_status(order.order_id, order.symbol)
                         if updated_order:
+                            previous_status = self._orders[order.order_id].status
                             self._orders[order.order_id] = updated_order
+                            if updated_order.status != previous_status:
+                                await self._publish_order_event("orders.updated", updated_order)
+                                if updated_order.status == OrderStatus.FILLED:
+                                    await self._publish_order_event("orders.executed", updated_order)
                 except Exception as e:
                     self.logger.error(f"Erreur lors de la mise à jour de l'ordre {order.order_id}: {e}")
     
@@ -252,3 +270,21 @@ class OrderManager:
             },
             "connectors": list(self._connectors.keys())
         }
+
+    async def _publish_order_event(self, stream_name: str, order: Order) -> None:
+        try:
+            if not self._event_bus:
+                return
+            payload = {
+                "order_id": order.order_id,
+                "symbol": getattr(order, "symbol", None),
+                "side": getattr(order, "side", None).value if getattr(order, "side", None) else None,
+                "type": getattr(order, "order_type", None).value if getattr(order, "order_type", None) else None,
+                "price": getattr(order, "price", None),
+                "quantity": getattr(order, "quantity", None),
+                "status": getattr(order, "status", None).value if getattr(order, "status", None) else None,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            await self._event_bus.publish(stream_name, payload)
+        except Exception:
+            pass

@@ -28,6 +28,7 @@ from ..prediction.ml_predictor import MLPredictor
 from ..prediction.signal_generator import SignalGenerator, MLPredictionStrategy
 from ..monitoring.market_abuse.opportunities import Opportunity
 from ..monitoring.market_abuse.opportunity_sinks import DatabaseOpportunitySink
+from ..monitoring.market_abuse.redis_sinks import RedisAlertSink, RedisOpportunitySink
 from ..database.database import init_database
 from ..monitoring.market_abuse.stream_monitor import MarketAbuseStreamMonitor
 from ..monitoring.market_abuse.calibration import AutoThresholdCalibrator
@@ -162,6 +163,12 @@ class PredictionService:
                     auto_calibrator=calib,
                     on_opportunities=self._on_opportunities_to_strategy,
                 )
+                # Ajouter sinks Redis pour alertes et opportunités
+                try:
+                    self.market_abuse_monitors[sym].sinks.append(RedisAlertSink())
+                    self.market_abuse_monitors[sym].opportunity_sinks.append(RedisOpportunitySink())
+                except Exception:
+                    pass
             
             # Charger les modèles pré-entraînés
             await self._load_pretrained_models()

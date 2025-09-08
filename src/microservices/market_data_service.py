@@ -22,6 +22,7 @@ from contextlib import asynccontextmanager
 from ..connectors.connector_factory import connector_factory
 from ..data_sources.data_aggregator import data_aggregator
 from ..arbitrage.price_monitor import price_monitor
+from ..utils.messaging.redis_bus import RedisEventBus
 
 
 class MarketDataRequest(BaseModel):
@@ -57,6 +58,7 @@ class MarketDataService:
         self.redis_client = None
         self.kafka_producer = None
         self.kafka_consumer = None
+        self.event_bus: Optional[RedisEventBus] = None
         self.is_running = False
         self.cache_ttl = 300  # 5 minutes
         self.batch_size = 100
@@ -81,6 +83,9 @@ class MarketDataService:
                 encoding="utf-8",
                 decode_responses=True
             )
+            # Event bus Redis Streams
+            self.event_bus = RedisEventBus()
+            await self.event_bus.connect()
             
             # Initialiser Kafka
             self.kafka_producer = KafkaProducer(
@@ -147,6 +152,8 @@ class MarketDataService:
                     
                     # Publier sur Kafka pour les autres services
                     await self._publish_to_kafka(symbol, fresh_data)
+                    # Publier sur Redis Streams (ticks)
+                    await self._publish_ticks_stream(symbol, fresh_data)
             
             # Mettre à jour les métriques
             self.metrics["requests_processed"] += 1
@@ -244,6 +251,21 @@ class MarketDataService:
         
         except Exception as e:
             self.logger.error(f"Erreur publication Kafka: {e}")
+
+    async def _publish_ticks_stream(self, symbol: str, data: List[Dict[str, Any]]):
+        """Publie les ticks sur Redis Streams."""
+        try:
+            if not self.event_bus:
+                return
+            message = {
+                "symbol": symbol,
+                "data": data,
+                "timestamp": datetime.utcnow().isoformat(),
+                "service": "market-data"
+            }
+            await self.event_bus.publish("market_data.ticks", message)
+        except Exception as e:
+            self.logger.error(f"Erreur publication Redis Streams: {e}")
     
     async def get_health(self) -> HealthResponse:
         """Retourne l'état de santé du service"""
@@ -312,6 +334,11 @@ class MarketDataService:
             if self.kafka_consumer:
                 self.kafka_consumer.close()
             
+            if self.event_bus:
+                self.event_bus.stop()
+                await self.event_bus.close()
+                self.event_bus = None
+
             await price_monitor.stop()
             
             self.is_running = False

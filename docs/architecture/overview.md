@@ -61,6 +61,18 @@ Gestion des données et du streaming :
 - **Processing** : Traitement des données
 - **Analytics** : Analytics et métriques
 
+### Event Bus (Redis Streams)
+
+Les microservices communiquent via Redis Streams pour les événements temps-réel:
+
+- `market_data.ticks`: ticks/candles agrégés depuis les exchanges (émis par `market_data_service`).
+- `indicators.computed`: indicateurs calculés (émis par `indicators_service`).
+- `alerts.general`: alertes système (émises par `MonitoringSystem`).
+- `alerts.market_abuse`: alertes de manipulations de marché (émises par `RedisAlertSink`).
+- `arbitrage.opportunities`: opportunités dérivées des alertes (émises par `RedisOpportunitySink`).
+
+Variable d'environnement principale: `REDIS_URL` (ex: `redis://localhost:6379`).
+
 ## Design Patterns utilisés
 
 ### 1. Observer Pattern
