@@ -13,7 +13,7 @@ import pandas as pd
 
 from ..prediction.signal_generator import TradingSignal, SignalType
 from ..backtesting.backtesting_engine import PositionType, Position, Trade
-from ..utils.messaging.redis_bus import RedisEventBus
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 class PositionStatus(Enum):

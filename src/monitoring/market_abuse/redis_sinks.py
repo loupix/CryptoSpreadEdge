@@ -9,8 +9,7 @@ from .opportunities import opportunities_from_alert, Opportunity
 from .sinks import AlertSink, OpportunitySink
 
 try:
-    # Import relatif vers utils
-    from ...utils.messaging.redis_bus import RedisEventBus
+    from src.utils.messaging.redis_bus import RedisEventBus
 except Exception:  # pragma: no cover
     RedisEventBus = None  # type: ignore
 

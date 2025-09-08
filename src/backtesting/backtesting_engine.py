@@ -13,7 +13,7 @@ from enum import Enum
 
 from ..prediction.signal_generator import TradingSignal, SignalType
 from ..indicators.base_indicator import IndicatorValue
-from ..utils.messaging.redis_bus import RedisEventBus
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 class PositionType(Enum):

@@ -22,7 +22,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import multiprocessing
 
 from ..indicators.base_indicator import IndicatorComposite, IndicatorFactory
-from ..utils.messaging.redis_bus import RedisEventBus
+from src.utils.messaging.redis_bus import RedisEventBus
 from ..indicators.technical_indicators import (
     MovingAverageIndicator, RSIIndicator, MACDIndicator,
     BollingerBandsIndicator, StochasticIndicator, VolumeIndicator, ATRIndicator

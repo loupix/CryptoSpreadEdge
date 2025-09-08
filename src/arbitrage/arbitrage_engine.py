@@ -10,12 +10,12 @@ from dataclasses import dataclass, field
 import statistics
 import time
 
-from connectors.common.market_data_types import MarketData, Order, OrderSide, OrderType
-from connectors.connector_factory import connector_factory
-from data_sources.data_aggregator import data_aggregator
+from src.connectors.common.market_data_types import MarketData, Order, OrderSide, OrderType
+from src.connectors.connector_factory import connector_factory
+from src.data_sources.data_aggregator import data_aggregator
 from config.arbitrage_config import DATA_SOURCES
 from monitoring.data_source_monitor import data_source_monitor
-from ..utils.messaging.redis_bus import RedisEventBus
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 @dataclass

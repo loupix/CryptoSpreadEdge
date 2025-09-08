@@ -28,7 +28,7 @@ from ..prediction.ml_predictor import MLPredictor
 from ..prediction.signal_generator import SignalGenerator, MLPredictionStrategy
 from ..monitoring.market_abuse.opportunities import Opportunity
 from ..monitoring.market_abuse.opportunity_sinks import DatabaseOpportunitySink
-from ..monitoring.market_abuse.redis_sinks import RedisAlertSink, RedisOpportunitySink
+from src.monitoring.market_abuse.redis_sinks import RedisAlertSink, RedisOpportunitySink
 from ..database.database import init_database
 from ..monitoring.market_abuse.stream_monitor import MarketAbuseStreamMonitor
 from ..monitoring.market_abuse.calibration import AutoThresholdCalibrator

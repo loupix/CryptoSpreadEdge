@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 from ..connectors.connector_factory import connector_factory
 from ..data_sources.data_aggregator import data_aggregator
 from ..arbitrage.price_monitor import price_monitor
-from ..utils.messaging.redis_bus import RedisEventBus
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 class MarketDataRequest(BaseModel):

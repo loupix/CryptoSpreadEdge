@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from enum import Enum
-from ..utils.messaging.redis_bus import RedisEventBus
+from src.utils.messaging.redis_bus import RedisEventBus
 
 from ..indicators.base_indicator import (
     IndicatorValue, IndicatorSignal, IndicatorType, 

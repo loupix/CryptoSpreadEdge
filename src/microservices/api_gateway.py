@@ -21,7 +21,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 import hashlib
 import random
-from ..utils.messaging.redis_bus import RedisEventBus
+from src.utils.messaging.redis_bus import RedisEventBus
 
 
 class ServiceHealth(BaseModel):
