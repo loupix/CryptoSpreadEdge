@@ -26,6 +26,9 @@ import joblib
 
 from ..prediction.ml_predictor import MLPredictor
 from ..prediction.signal_generator import SignalGenerator, MLPredictionStrategy
+from ..monitoring.market_abuse.opportunities import Opportunity
+from ..monitoring.market_abuse.opportunity_sinks import DatabaseOpportunitySink
+from ..database.database import init_database
 
 
 class PredictionRequest(BaseModel):
@@ -71,6 +74,15 @@ class HealthResponse(BaseModel):
     timestamp: datetime
     services: Dict[str, str]
     performance: Dict[str, Any]
+
+
+class OpportunityIn(BaseModel):
+    """Payload d'opportunité à ingérer"""
+    symbol: str
+    kind: str
+    confidence: float
+    rationale: Optional[str] = None
+    timestamp: Optional[datetime] = None
 
 
 class PredictionService:
@@ -578,6 +590,44 @@ async def get_cache_stats():
         return {"error": "Redis non connecté"}
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.post("/opportunities/ingest")
+async def ingest_opportunity(opp: OpportunityIn, background_tasks: BackgroundTasks):
+    """Ingestion d'une opportunité: persiste en DB et notifie la stratégie via Kafka"""
+    try:
+        # Persistance DB (async)
+        async def persist():
+            await init_database()
+            sink = DatabaseOpportunitySink()
+            o = Opportunity(
+                timestamp=opp.timestamp or datetime.utcnow(),
+                symbol=opp.symbol,
+                kind=opp.kind,
+                confidence=opp.confidence,
+                rationale=opp.rationale or "",
+            )
+            await sink.emit_async([o])
+
+        background_tasks.add_task(persist)
+
+        # Notifier via Kafka une stratégie (léger)
+        if prediction_service.kafka_producer:
+            prediction_service.kafka_producer.send(
+                'opportunities',
+                {
+                    "symbol": opp.symbol,
+                    "kind": opp.kind,
+                    "confidence": opp.confidence,
+                    "rationale": opp.rationale or "",
+                    "timestamp": (opp.timestamp or datetime.utcnow()).isoformat(),
+                },
+            )
+            prediction_service.metrics["kafka_messages_sent"] += 1
+
+        return {"status": "accepted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
