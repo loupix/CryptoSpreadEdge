@@ -1,6 +1,15 @@
 import argparse
 import csv
+import sys
+from pathlib import Path
 from datetime import datetime
+
+# Rendre le script autonome pour les imports lorsqu'il est exécuté en direct
+_ROOT = Path(__file__).resolve().parents[2]
+_SRC = _ROOT / "src"
+for p in (str(_ROOT), str(_SRC)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from src.monitoring.market_abuse.stream_monitor import MarketAbuseStreamMonitor
 from src.monitoring.market_abuse.sinks import FileAlertSink, PrometheusAlertSink
