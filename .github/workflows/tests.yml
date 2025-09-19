@@ -5,6 +5,7 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   tests:
@@ -44,4 +45,5 @@ jobs:
       - name: Run e2e tests
         run: |
           pytest tests/e2e -k "not deep_learning and not prediction"
+
 
