@@ -1,56 +1,47 @@
-name: Tests
+name: CI - Tests
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
-  unit_integration:
+  tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Installer dépendances CI (pip)
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-ci.txt
+          pip install -r requirements.txt
 
       - name: Run unit tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
         run: |
-          python -m pytest -q tests/unit -k "not deep_learning and not prediction"
+          pytest tests/unit -k "not deep_learning and not prediction"
 
       - name: Run integration tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
         run: |
-          python -m pytest -q tests/integration -k "not deep_learning and not prediction"
+          pytest tests/integration -k "not deep_learning and not prediction"
 
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Installer dépendances CI (pip)
+      - name: Run e2e tests
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-ci.txt
+          pytest tests/e2e -k "not deep_learning and not prediction"
 
-      - name: Run E2E tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
-        run: |
-          python -m pytest -q tests/e2e -k "not deep_learning and not prediction"
