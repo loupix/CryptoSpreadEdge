@@ -38,24 +38,24 @@ jobs:
       - name: Afficher versions
         shell: bash -l {0}
         run: |
-          python --version
-          pip --version
-          pytest --version
+          conda run -n test-env python --version
+          conda run -n test-env pip --version
+          conda run -n test-env pytest --version
 
       - name: Lancer tests unitaires
         shell: bash -l {0}
         run: |
-          python -m pytest -q tests/unit -k "not deep_learning and not prediction"
+          conda run -n test-env python -m pytest -q tests/unit -k "not deep_learning and not prediction"
 
       - name: Lancer tests d'intégration
         shell: bash -l {0}
         run: |
-          python -m pytest -q tests/integration -k "not deep_learning and not prediction"
+          conda run -n test-env python -m pytest -q tests/integration -k "not deep_learning and not prediction"
 
       - name: Lancer tests e2e
         shell: bash -l {0}
         run: |
-          python -m pytest -q tests/e2e -k "not deep_learning and not prediction"
+          conda run -n test-env python -m pytest -q tests/e2e -k "not deep_learning and not prediction"
 
   docker-build:
     name: Build Docker images
