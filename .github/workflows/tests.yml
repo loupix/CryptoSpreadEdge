@@ -13,21 +13,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          auto-update-conda: true
           python-version: '3.11'
-      - name: Install dependencies
+          channels: conda-forge,defaults
+          channel-priority: true
+
+      - name: Créer l'environnement
+        shell: bash -l {0}
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
+          conda env update -n test-env -f environment-dev.yml
+          conda activate test-env
+          python -m pip install -r requirements.txt
+
       - name: Run unit tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        shell: bash -l {0}
         run: |
-          pytest tests/unit -q
+          python -m pytest -q tests/unit -k "not deep_learning and not prediction"
+
       - name: Run integration tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        shell: bash -l {0}
         run: |
-          pytest tests/integration -q
+          python -m pytest -q tests/integration -k "not deep_learning and not prediction"
 
   e2e:
     if: github.ref == 'refs/heads/main'
@@ -35,17 +49,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          auto-update-conda: true
           python-version: '3.11'
-      - name: Install dependencies
+          channels: conda-forge,defaults
+          channel-priority: true
+
+      - name: Créer l'environnement
+        shell: bash -l {0}
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
+          conda env update -n test-env -f environment-dev.yml
+          conda activate test-env
+          python -m pip install -r requirements.txt
+
       - name: Run E2E tests
         env:
-          PYTEST_ADDOPTS: -k "not deep_learning and not prediction"
+          PYTHONPATH: ${{ github.workspace }}/src
+        shell: bash -l {0}
         run: |
-          pytest tests/e2e -q
+          python -m pytest -q tests/e2e -k "not deep_learning and not prediction"

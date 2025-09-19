@@ -10,6 +10,8 @@ jobs:
   tests:
     name: Tests unitaires et intégration (${{ matrix.os }} | py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
     strategy:
       fail-fast: false
       matrix:
@@ -52,22 +54,16 @@ jobs:
           pytest --version
 
       - name: Lancer tests unitaires
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
         shell: bash -l {0}
         run: |
           python -m pytest -q tests/unit -k "not deep_learning and not prediction"
 
       - name: Lancer tests d'intégration
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
         shell: bash -l {0}
         run: |
           python -m pytest -q tests/integration -k "not deep_learning and not prediction"
 
       - name: Lancer tests e2e
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
         shell: bash -l {0}
         run: |
           python -m pytest -q tests/e2e -k "not deep_learning and not prediction"
