@@ -6,66 +6,51 @@ on:
 
 jobs:
   unit_integration:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          auto-update-conda: true
           python-version: '3.11'
-          channels: conda-forge,defaults
-          channel-priority: true
 
-      - name: Créer l'environnement
-        shell: bash -l {0}
+      - name: Installer dépendances CI (pip)
         run: |
-          conda env update -n test-env -f config/environments/conda/environment-dev.yml
-          conda activate test-env
-          python -m pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
 
       - name: Run unit tests
         env:
           PYTHONPATH: ${{ github.workspace }}/src
-        shell: bash -l {0}
         run: |
           python -m pytest -q tests/unit -k "not deep_learning and not prediction"
 
       - name: Run integration tests
         env:
           PYTHONPATH: ${{ github.workspace }}/src
-        shell: bash -l {0}
         run: |
           python -m pytest -q tests/integration -k "not deep_learning and not prediction"
 
   e2e:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          auto-update-conda: true
           python-version: '3.11'
-          channels: conda-forge,defaults
-          channel-priority: true
 
-      - name: Créer l'environnement
-        shell: bash -l {0}
+      - name: Installer dépendances CI (pip)
         run: |
-          conda env update -n test-env -f config/environments/conda/environment-dev.yml
-          conda activate test-env
-          python -m pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
 
       - name: Run E2E tests
         env:
           PYTHONPATH: ${{ github.workspace }}/src
-        shell: bash -l {0}
         run: |
           python -m pytest -q tests/e2e -k "not deep_learning and not prediction"

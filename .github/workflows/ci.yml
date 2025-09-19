@@ -6,56 +6,42 @@ on:
 
 jobs:
   tests:
-    name: Tests unitaires et intégration (${{ matrix.os }} | py${{ matrix.python }})
-    runs-on: ${{ matrix.os }}
+    name: Tests unitaires et intégration (ubuntu-latest | py3.11)
+    runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}/src
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        python: ['3.11']
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          auto-update-conda: true
-          python-version: ${{ matrix.python }}
-          channels: conda-forge,defaults
-          channel-priority: true
+          python-version: '3.11'
 
-      - name: Créer l'environnement (tests, Ubuntu)
-        shell: bash -l {0}
+      - name: Installer dépendances CI (pip)
         run: |
-          conda env update -n test-env -f config/environments/conda/environment-test.yml
-          conda activate test-env
-          echo "Skip pip install requirements in CI tests (heavy deps)"
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
 
       - name: Afficher versions
-        shell: bash -l {0}
         run: |
-          conda run -n test-env python --version
-          conda run -n test-env pip --version
-          conda run -n test-env pytest --version
+          python --version
+          pip --version
+          pytest --version
 
       - name: Lancer tests unitaires
-        shell: bash -l {0}
         run: |
-          conda run -n test-env python -m pytest -q tests/unit -k "not deep_learning and not prediction"
+          python -m pytest -q tests/unit -k "not deep_learning and not prediction"
 
       - name: Lancer tests d'intégration
-        shell: bash -l {0}
         run: |
-          conda run -n test-env python -m pytest -q tests/integration -k "not deep_learning and not prediction"
+          python -m pytest -q tests/integration -k "not deep_learning and not prediction"
 
       - name: Lancer tests e2e
-        shell: bash -l {0}
         run: |
-          conda run -n test-env python -m pytest -q tests/e2e -k "not deep_learning and not prediction"
+          python -m pytest -q tests/e2e -k "not deep_learning and not prediction"
 
   docker-build:
     name: Build Docker images
@@ -121,39 +107,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          auto-update-conda: true
           python-version: '3.11'
-          channels: conda-forge,defaults
-          channel-priority: true
 
-      - name: Créer l'environnement (portfolio tests)
-        shell: bash -l {0}
+      - name: Installer dépendances CI (pip)
         run: |
-          conda env update -n test-env -f config/environments/conda/environment-test.yml
-          conda activate test-env
-          echo "Skip pip install requirements for portfolio tests"
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
 
       - name: Test portfolio optimizer
         env:
           PYTHONPATH: ${{ github.workspace }}/src
-        shell: bash -l {0}
         run: |
           python -m pytest -q tests/unit/test_portfolio_optimizer.py -v
 
       - name: Test price covariance
         env:
           PYTHONPATH: ${{ github.workspace }}/src
-        shell: bash -l {0}
         run: |
           python -m pytest -q tests/unit/test_price_covariance.py -v
 
       - name: Test portfolio CLI
         env:
           PYTHONPATH: ${{ github.workspace }}/src
-        shell: bash -l {0}
         run: |
           python scripts/tools/portfolio_cli.py --help
 
