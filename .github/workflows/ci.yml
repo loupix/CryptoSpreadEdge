@@ -33,7 +33,7 @@ jobs:
         run: |
           conda env update -n test-env -f config/environments/conda/environment-test.yml
           conda activate test-env
-          python -m pip install -r requirements.txt
+          echo "Skip pip install requirements in CI tests (heavy deps)"
 
       - name: Afficher versions
         shell: bash -l {0}
@@ -129,12 +129,12 @@ jobs:
           channels: conda-forge,defaults
           channel-priority: true
 
-      - name: Créer l'environnement
+      - name: Créer l'environnement (portfolio tests)
         shell: bash -l {0}
         run: |
-          conda env update -n test-env -f environment-dev.yml
+          conda env update -n test-env -f config/environments/conda/environment-test.yml
           conda activate test-env
-          python -m pip install -r requirements.txt
+          echo "Skip pip install requirements for portfolio tests"
 
       - name: Test portfolio optimizer
         env:
