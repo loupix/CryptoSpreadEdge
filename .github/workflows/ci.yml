@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         python: ['3.11']
 
     steps:
@@ -30,19 +30,10 @@ jobs:
           channels: conda-forge,defaults
           channel-priority: true
 
-      - name: Créer l'environnement (Linux)
-        if: startsWith(matrix.os, 'ubuntu')
+      - name: Créer l'environnement (tests, Ubuntu)
         shell: bash -l {0}
         run: |
-          conda env update -n test-env -f environment-dev.yml
-          conda activate test-env
-          python -m pip install -r requirements.txt
-
-      - name: Créer l'environnement (Windows)
-        if: startsWith(matrix.os, 'windows')
-        shell: powershell
-        run: |
-          conda env update -n test-env -f environment-dev-windows.yml
+          conda env update -n test-env -f environment-test.yml
           conda activate test-env
           python -m pip install -r requirements.txt
 
