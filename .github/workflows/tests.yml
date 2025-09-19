@@ -23,7 +23,7 @@ jobs:
       - name: Créer l'environnement
         shell: bash -l {0}
         run: |
-          conda env update -n test-env -f environment-dev.yml
+          conda env update -n test-env -f config/environments/conda/environment-dev.yml
           conda activate test-env
           python -m pip install -r requirements.txt
 
@@ -59,7 +59,7 @@ jobs:
       - name: Créer l'environnement
         shell: bash -l {0}
         run: |
-          conda env update -n test-env -f environment-dev.yml
+          conda env update -n test-env -f config/environments/conda/environment-dev.yml
           conda activate test-env
           python -m pip install -r requirements.txt
 
