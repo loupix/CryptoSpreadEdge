@@ -47,7 +47,7 @@ dependencies:
     - sqlalchemy==2.0.23
     - alembic==1.13.1
     - asyncpg==0.29.0
-    - sqlite3
+  - sqlite
   
   # Utilities
   - pip:
@@ -65,6 +65,4 @@ dependencies:
     - bandit==1.7.5
   
   # System dependencies
-  - gcc
-  - g++
-  - make
+  # Allégées pour la CI; éviter les toolchains non nécessaires
