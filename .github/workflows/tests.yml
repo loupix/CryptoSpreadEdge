@@ -39,7 +39,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt --ignore-installed ta-lib torch scikit-learn tensorflow backtrader
-          pip install --force-reinstall "httpx==0.24.1" "starlette==0.26.1" "fastapi==0.95.0"
+          pip install --force-reinstall "httpx==0.25.2" "starlette==0.27.0" "fastapi==0.104.1"
 
       - name: Run unit tests
         run: |
