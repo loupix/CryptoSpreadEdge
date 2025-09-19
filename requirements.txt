@@ -1,6 +1,7 @@
 # Core dependencies
-fastapi==0.104.1
+fastapi==0.95.0
 uvicorn[standard]==0.24.0
+starlette==0.26.1
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
@@ -10,9 +11,9 @@ websockets==12.0
 aiohttp==3.9.1
 pandas==2.1.4
 numpy==1.25.2
-ta-lib>=0.4.28,<0.7.0
+ta-lib>=0.4.28,<0.7.0  # Optional: for technical analysis (can be skipped in CI)
 
-# AI and ML
+# AI and ML (Optional: heavy dependencies, can be skipped in CI)
 torch==2.1.1
 scikit-learn==1.3.2
 tensorflow==2.15.0
@@ -46,7 +47,7 @@ python-dotenv==1.0.0
 click==8.1.7
 rich==13.7.0
 typer==0.9.0
-httpx==0.28.1
+httpx==0.24.1
 
 # Development
 pytest==8.4.2
